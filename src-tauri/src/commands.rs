@@ -12,13 +12,17 @@ pub async fn execute_enterprise_audit(
     app: tauri::AppHandle,
     args: ScanArgs,
 ) -> Result<String, String> {
-    let mut command_args: Vec<String> = vec!["--target".to_string(), args.target.clone(),];
+
+    let mut command_args = vec![
+        "--target".to_string(),
+        args.target,
+    ];
 
     if let Some(comm) = args.community {
-      if !comm.is_empty() {
-        command_args.push("--community".to_string());
-        command_args.push(comm); // ✅ move String directly
-      }
+        if !comm.is_empty() {
+            command_args.push("--community".to_string());
+            command_args.push(comm);
+        }
     }
 
     let output = app
