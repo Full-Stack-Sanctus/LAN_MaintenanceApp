@@ -11,7 +11,7 @@ export default defineConfig(async () => ({
 
   // 2. Ensure Vite outputs to the directory Tauri is looking at
   build: {
-    outDir: '../dist',
+    outDir: 'dist',
     emptyOutDir: true,
     // Tauri supports modern browsers, so we can target high-end JS
     target: process.env.TAURI_ENV_PLATFORM == 'windows' ? 'chrome105' : 'safari13',
