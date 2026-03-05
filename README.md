@@ -150,6 +150,12 @@ This will generate:
 * macOS `.app`
 * Linux package
 
+Privileges (Windows/macOS): 
+
+* Unmanaged scanning (ARP) requires 
+** Administrator (Windows) or  
+** Root/Sudo (macOS/Linux) privileges because it uses raw network sockets. If the app is run as a standard user, the scanUnmanaged function will fail.
+
 ---
 
 ## 🔐 Why Tauri?
