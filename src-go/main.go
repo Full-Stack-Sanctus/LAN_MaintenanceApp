@@ -4,14 +4,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"net"
-	"os"
-	"runtime"
 	"time"
-
 	"github.com/gosnmp/gosnmp"
-	"github.com/mdlayher/arp"
 )
 
 type Device struct {

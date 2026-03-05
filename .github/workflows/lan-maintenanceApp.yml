@@ -31,11 +31,11 @@ jobs:
             rust_targets: "x86_64-apple-darwin aarch64-apple-darwin"
 
           # -------------------------
-          # Android
+          # Linux Ubuntu (Desktop Only)
           # -------------------------
           - os: ubuntu-22.04
-            tauri_args: "android build"
-            rust_targets: "aarch64-linux-android"
+            tauri_args: ""
+            rust_targets: "x86_64-unknown-linux-gnu"
 
     runs-on: ${{ matrix.os }}
 
@@ -57,9 +57,9 @@ jobs:
 
       - name: Install Frontend Dependencies
         run: npm ci
-        
+
       # -------------------------------------------------
-      # Build Frontend (VERY IMPORTANT)
+      # Build Frontend
       # -------------------------------------------------
       - name: Build Frontend
         run: npm run build
@@ -73,24 +73,10 @@ jobs:
           targets: ${{ matrix.rust_targets }}
 
       # -------------------------------------------------
-      # Android Setup (Ubuntu Only)
-      # -------------------------------------------------
-      - name: Setup Java 17
-        if: matrix.os == 'ubuntu-22.04'
-        uses: actions/setup-java@v4
-        with:
-          distribution: "zulu"
-          java-version: "17"
-
-      - name: Setup Android SDK
-        if: matrix.os == 'ubuntu-22.04'
-        uses: android-actions/setup-android@v3
-
-      # -------------------------------------------------
-      # Linux Dependencies (Desktop Only)
+      # Linux Dependencies (Ubuntu Desktop Only)
       # -------------------------------------------------
       - name: Install Linux Dependencies
-        if: matrix.os == 'ubuntu-22.04' && matrix.tauri_args != 'android build'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -110,7 +96,7 @@ jobs:
           go-version: "1.21"
 
       # -------------------------------------------------
-      # Build Go Sidecars (Desktop)
+      # Build Go Sidecars (Windows)
       # -------------------------------------------------
       - name: Build Go Sidecar (Windows)
         if: matrix.os == 'windows-latest'
@@ -120,33 +106,35 @@ jobs:
           cd src-go
           GOOS=windows GOARCH=amd64 go build -o ../src-tauri/binaries/network-engine-x86_64-pc-windows-msvc.exe
 
-      - name: Build Go Sidecars (macOS Universal)
+      # -------------------------------------------------
+      # Build Go Sidecars (macOS Universal)
+      # -------------------------------------------------
+      - name: Build Go Sidecar (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           mkdir -p src-tauri/binaries
           cd src-go
-          # Intel
+
           GOOS=darwin GOARCH=amd64 go build -o ../src-tauri/binaries/network-engine-x86_64-apple-darwin
-          # Apple Silicon
           GOOS=darwin GOARCH=arm64 go build -o ../src-tauri/binaries/network-engine-aarch64-apple-darwin
-          # MERGE THEM into a Universal Binary
+
           lipo -create \
             ../src-tauri/binaries/network-engine-x86_64-apple-darwin \
             ../src-tauri/binaries/network-engine-aarch64-apple-darwin \
             -output ../src-tauri/binaries/network-engine-universal-apple-darwin
 
       # -------------------------------------------------
-      # Build Go for Android (If Needed)
+      # Build Go Sidecars (Linux Ubuntu Desktop)
       # -------------------------------------------------
-      - name: Build Go Sidecar (Android ARM64)
+      - name: Build Go Sidecar (Linux)
         if: matrix.os == 'ubuntu-22.04'
         run: |
           mkdir -p src-tauri/binaries
           cd src-go
-          GOOS=android GOARCH=arm64 go build -o ../src-tauri/binaries/network-engine-aarch64-linux-android
+          GOOS=linux GOARCH=amd64 go build -o ../src-tauri/binaries/network-engine-x86_64-unknown-linux-gnu
 
       # -------------------------------------------------
-      # Tauri Build + GitHub Release
+      # Tauri Build + Release
       # -------------------------------------------------
       - name: Build & Publish
         uses: tauri-apps/tauri-action@v0
@@ -154,6 +142,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           tagName: v${{ github.run_number }}
-          releaseName: "LAN Maintainer Enterprise Build v${{ github.run_number }}"
-          releaseBody: "Automated Enterprise Release"
+          releaseName: "Enterprise Build v${{ github.run_number }}"
+          releaseBody: "Automated Desktop Release"
           args: ${{ matrix.tauri_args }}
