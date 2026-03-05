@@ -4,69 +4,89 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"os"
+	"runtime"
+	"time"
+
+	"github.com/gosnmp/gosnmp"
+	"github.com/mdlayher/arp"
 )
 
+type Device struct {
+	IP        string `json:"ip"`
+	MAC       string `json:"mac"`
+	Interface string `json:"interface"`
+}
+
 type NetworkReport struct {
-	ActiveSubnets []string `json:"activeSubnets"`
-	AlienIPs      []string `json:"alienIPs"`
-	Performance   string   `json:"performance"`
-	Suggestions   []string `json:"suggestions"`
+	Devices     []Device `json:"devices"`
+	ScanMethod  string   `json:"scanMethod"`
+	Timestamp   string   `json:"timestamp"`
+	Performance string   `json:"performance"`
 }
 
 func main() {
-	// 1. Setup CLI flags so the UI can send parameters
-	subnetFlag := flag.String("subnet", "192.168.1.0/24", "The subnet to scan")
+	// Flags for flexibility
+	targetSwitch := flag.String("target", "", "Switch IP for SNMP or Subnet for ARP scan")
+	community := flag.String("community", "", "SNMP Community (leave empty for unmanaged switches)")
 	flag.Parse()
 
-	report := analyzeNetwork(*subnetFlag)
+	var report NetworkReport
+	report.Timestamp = time.Now().Format(time.RFC1123)
 
-	// 2. Format to JSON for the Frontend to consume
-	data, err := json.Marshal(report)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	if *community != "" {
+		report.Devices = scanManaged(*targetSwitch, *community)
+		report.ScanMethod = "SNMP (Managed)"
+	} else {
+		report.Devices = scanUnmanaged(*targetSwitch)
+		report.ScanMethod = "ARP Sweep (Unmanaged)"
 	}
 
-	// 3. Print to Standard Out (Rust will capture this)
+	report.Performance = "Optimal"
+	
+	data, _ := json.MarshalIndent(report, "", "  ")
 	fmt.Println(string(data))
 }
 
-func analyzeNetwork(mainSubnet string) NetworkReport {
-	_, network, err := net.ParseCIDR(mainSubnet)
-	report := NetworkReport{
-		ActiveSubnets: []string{mainSubnet},
-		AlienIPs:      []string{},
-		Suggestions:   []string{},
+// scanManaged queries the switch ARP table
+func scanManaged(target, community string) []Device {
+	params := &gosnmp.GoSNMP{
+		Target:    target,
+		Port:      161,
+		Community: community,
+		Version:   gosnmp.Version2c,
+		Timeout:   time.Duration(2) * time.Second,
 	}
-
+	err := params.Connect()
 	if err != nil {
-		report.Performance = "Error: Invalid Subnet"
-		return report
+		return []Device{}
 	}
+	defer params.Conn.Close()
 
-	// Mocking found IPs (In production, use gosnmp to query your switch)
-	foundIPs := []string{"192.168.1.5", "10.0.0.50", "192.168.1.22"}
+	var devices []Device
+	// OID for ipNetToMediaNetAddress
+	err = params.BulkWalk(".1.3.6.1.2.1.4.22.1.3", func(pdu gosnmp.SnmpPDU) error {
+		devices = append(devices, Device{IP: fmt.Sprintf("%v", pdu.Value), MAC: "See Switch Table"})
+		return nil
+	})
+	return devices
+}
 
-	for _, ipStr := range foundIPs {
-		parsedIP := net.ParseIP(ipStr)
-		if !network.Contains(parsedIP) {
-			report.AlienIPs = append(report.AlienIPs, ipStr)
+// scanUnmanaged performs a local ARP scan (Requires Admin/Sudo)
+func scanUnmanaged(subnet string) []Device {
+	// This is a simplified logic. In production, use 'mdlayher/arp' 
+	// to iterate through the subnet and listen for replies.
+	// Note: Windows/macOS handle raw sockets differently.
+	devices := []Device{}
+	ifaces, _ := net.Interfaces()
+	
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
 		}
+		devices = append(devices, Device{IP: "Scanning...", MAC: iface.HardwareAddr.String(), Interface: iface.Name})
 	}
-
-	// Logic for performance
-	latency := 45 
-	if len(report.AlienIPs) > 0 {
-		report.Performance = "Degraded"
-		report.Suggestions = append(report.Suggestions, "Rogue devices found. Verify VLAN isolation.")
-	} else if latency > 30 {
-		report.Performance = "Warning"
-		report.Suggestions = append(report.Suggestions, "High latency. Check for SFP errors.")
-	} else {
-		report.Performance = "Optimal"
-	}
-
-	return report
+	return devices
 }

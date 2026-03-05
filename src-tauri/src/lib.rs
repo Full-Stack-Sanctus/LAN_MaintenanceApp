@@ -1,29 +1,35 @@
 use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::CommandEvent;
+use serde::{Deserialize, Serialize};
 
-#[tauri::command]
-async fn run_network_scan(app: tauri::AppHandle, subnet: String) -> Result<String, String> {
-    // 1. Call the sidecar binary
-    let sidecar_command = app.shell()
-        .sidecar("network-engine")
-        .map_err(|e| e.to_string())?
-        .args(["--subnet", &subnet]);
-
-    // 2. Execute and capture output
-    let output = sidecar_command.output().await.map_err(|e| e.to_string())?;
-
-    if output.status.success() {
-        Ok(String::from_utf8(output.stdout).unwrap_or_else(|_| "Invalid UTF8".into()))
-    } else {
-        Err(String::from_utf8(output.stderr).unwrap_or_else(|_| "Unknown Error".into()))
-    }
+#[derive(Serialize, Deserialize)]
+struct ScanArgs {
+    target: String,
+    community: Option<String>,
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![run_network_scan])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+#[tauri::command]
+pub async fn execute_enterprise_audit(app: tauri::AppHandle, args: ScanArgs) -> Result<String, String> {
+    let mut command_args = vec!["--target", &args.target];
+    
+    // Only add community flag if provided (Managed Switch mode)
+    let comm = args.community.clone().unwrap_or_default();
+    if !comm.is_empty() {
+        command_args.push("--community");
+        command_args.push(&comm);
+    }
+
+    // "network-engine" is the binary name configured in tauri.conf.json
+    let output = app.shell()
+        .sidecar("network-engine")
+        .map_err(|e| format!("Sidecar error: {}", e))?
+        .args(command_args)
+        .output()
+        .await
+        .map_err(|e| format!("Execution error: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
 }

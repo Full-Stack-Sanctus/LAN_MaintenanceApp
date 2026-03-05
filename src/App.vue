@@ -2,61 +2,69 @@
 import { ref } from 'vue';
 import { invoke } from "@tauri-apps/api/core";
 
-interface Report {
-  activeSubnets: string[];
-  alienIPs: string[];
-  performance: string;
-  suggestions: string[];
-}
+const target = ref("192.168.1.1");
+const community = ref(""); // Empty = Unmanaged mode
+const results = ref<any>(null);
+const isRunning = ref(false);
 
-const subnet = ref("192.168.1.0/24");
-const report = ref<Report | null>(null);
-const loading = ref(false);
-
-const startScan = async () => {
-  loading.value = true;
+async function runAudit() {
+  isRunning.value = true;
   try {
-    const rawJson = await invoke<string>("run_network_scan", { subnet: subnet.value });
-    report.value = JSON.parse(rawJson);
-  } catch (err) {
-    alert("Scan failed: " + err);
+    const raw = await invoke("execute_enterprise_audit", { 
+      args: { target: target.value, community: community.value || null } 
+    });
+    results.value = JSON.parse(raw as string);
+  } catch (e) {
+    console.error(e);
   } finally {
-    loading.value = false;
+    isRunning.value = false;
   }
-};
+}
 </script>
 
 <template>
-  <main class="p-10 bg-slate-900 min-h-screen text-slate-100">
-    <div class="max-w-4xl mx-auto">
-      <h1 class="text-4xl font-black mb-2 text-blue-400">LAN MAINTAINER</h1>
-      <p class="text-slate-400 mb-8 font-mono">Enterprise Network Auditor v2.0</p>
+  <div class="p-8 bg-black text-white min-h-screen font-sans">
+    <header class="border-b border-gray-800 pb-4 mb-8">
+      <h1 class="text-2xl font-bold tracking-tighter">LAN_MAINTAINER <span class="text-blue-500">PRO</span></h1>
+    </header>
 
-      <div class="flex gap-4 mb-10">
-        <input v-model="subnet" class="bg-slate-800 border border-slate-700 px-4 py-2 rounded flex-1 font-mono" />
-        <button @click="startScan" :disabled="loading" 
-          class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-8 py-2 rounded font-bold uppercase tracking-widest transition-all">
-          {{ loading ? 'Analyzing...' : 'Execute Audit' }}
-        </button>
+    <div class="grid grid-cols-12 gap-6">
+      <div class="col-span-4 space-y-4">
+        <div class="bg-zinc-900 p-4 rounded border border-zinc-800">
+          <label class="block text-xs uppercase text-zinc-500 mb-2">Network Target (IP/Subnet)</label>
+          <input v-model="target" class="w-full bg-zinc-800 p-2 rounded text-sm outline-none border border-transparent focus:border-blue-500" />
+          
+          <label class="block text-xs uppercase text-zinc-500 mt-4 mb-2">SNMP Community (Optional)</label>
+          <input v-model="community" placeholder="Leave empty for unmanaged" class="w-full bg-zinc-800 p-2 rounded text-sm outline-none border border-transparent focus:border-blue-500" />
+          
+          <button @click="runAudit" :disabled="isRunning" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold transition-colors">
+            {{ isRunning ? 'PROBING NETWORK...' : 'START AUDIT' }}
+          </button>
+        </div>
       </div>
 
-      <div v-if="report" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div :class="['p-6 rounded-lg border-l-4', report.performance === 'Optimal' ? 'bg-emerald-900/20 border-emerald-500' : 'bg-red-900/20 border-red-500']">
-          <h2 class="text-sm font-bold text-slate-400 uppercase mb-1">Performance</h2>
-          <p class="text-2xl font-bold">{{ report.performance }}</p>
-          <div class="mt-4 space-y-1">
-            <p v-for="s in report.suggestions" :key="s" class="text-sm text-slate-300">💡 {{ s }}</p>
+      <div class="col-span-8">
+        <div v-if="results" class="bg-zinc-900 rounded border border-zinc-800 overflow-hidden">
+          <div class="p-4 bg-zinc-800 flex justify-between items-center">
+            <span class="text-xs font-mono text-zinc-400">METHOD: {{ results.scanMethod }}</span>
+            <span class="text-xs font-mono text-emerald-400">STATUS: {{ results.performance }}</span>
           </div>
-        </div>
-
-        <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">
-          <h2 class="text-sm font-bold text-slate-400 uppercase mb-1">Security Audit</h2>
-          <p class="text-lg">Alien IPs: <span :class="report.alienIPs.length > 0 ? 'text-red-400' : 'text-emerald-400'">{{ report.alienIPs.length }} Detected</span></p>
-          <ul class="mt-4 font-mono text-xs text-red-300 space-y-1">
-            <li v-for="ip in report.alienIPs" :key="ip">{{ ip }} (Unknown Device)</li>
-          </ul>
+          <table class="w-full text-left text-sm">
+            <thead class="text-zinc-500 border-b border-zinc-800">
+              <tr>
+                <th class="p-4">IP Address</th>
+                <th class="p-4">Hardware (MAC)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="dev in results.devices" :key="dev.ip" class="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                <td class="p-4 font-mono">{{ dev.ip }}</td>
+                <td class="p-4 text-zinc-400">{{ dev.mac }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
-  </main>
+  </div>
 </template>
