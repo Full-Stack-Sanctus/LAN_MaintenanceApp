@@ -1,18 +1,22 @@
 {
+  "name": "lan-maintainer",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.1",
     "@tauri-apps/cli": "^2.10.1",
     "@vitejs/plugin-vue": "^6.0.4",
-    "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "@tailwindcss/cli": "^4.2.1",
+    "@tailwindcss/vite": "^4.2.1",
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@types/tailwindcss": "^3.0.11",
     "vue": "^3.5.29"
-  },
-  "scripts": {
-    "build": "vite build"
   }
 }
