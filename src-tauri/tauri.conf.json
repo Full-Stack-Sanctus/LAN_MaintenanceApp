@@ -39,8 +39,6 @@
     ]
   },
   "plugins": {
-    "shell": {
-      "sidecar": true
-    }
+    "shell": {}
   }
 }
