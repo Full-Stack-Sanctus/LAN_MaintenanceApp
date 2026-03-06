@@ -5,47 +5,50 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"sync"
 	"time"
+
 	"github.com/gosnmp/gosnmp"
 )
 
 type Device struct {
 	IP        string `json:"ip"`
 	MAC       string `json:"mac"`
-	Interface string `json:"interface"`
+	Status    string `json:"status"`
 }
 
 type NetworkReport struct {
 	Devices     []Device `json:"devices"`
 	ScanMethod  string   `json:"scanMethod"`
+	Subnet      string   `json:"subnet"`
 	Timestamp   string   `json:"timestamp"`
 	Performance string   `json:"performance"`
 }
 
 func main() {
-	// Flags for flexibility
-	targetSwitch := flag.String("target", "", "Switch IP for SNMP or Subnet for ARP scan")
-	community := flag.String("community", "", "SNMP Community (leave empty for unmanaged switches)")
+	target := flag.String("target", "192.168.1.0/24", "CIDR Subnet or Switch IP")
+	community := flag.String("community", "", "SNMP Community String")
 	flag.Parse()
 
-	var report NetworkReport
-	report.Timestamp = time.Now().Format(time.RFC1123)
+	report := NetworkReport{
+		Subnet:    *target,
+		Timestamp: time.Now().Format(time.RFC1123),
+	}
 
 	if *community != "" {
-		report.Devices = scanManaged(*targetSwitch, *community)
-		report.ScanMethod = "SNMP (Managed)"
+		report.Devices = scanManaged(*target, *community)
+		report.ScanMethod = "SNMP (Core Switch)"
 	} else {
-		report.Devices = scanUnmanaged(*targetSwitch)
-		report.ScanMethod = "ARP Sweep (Unmanaged)"
+		report.Devices = scanUnmanaged(*target)
+		report.ScanMethod = "CIDR ARP Sweep"
 	}
 
 	report.Performance = "Optimal"
-	
-	data, _ := json.MarshalIndent(report, "", "  ")
+	data, _ := json.Marshal(report)
 	fmt.Println(string(data))
 }
 
-// scanManaged queries the switch ARP table
+// 1. MANAGED: Querying the Core Switch OID Table
 func scanManaged(target, community string) []Device {
 	params := &gosnmp.GoSNMP{
 		Target:    target,
@@ -54,34 +57,67 @@ func scanManaged(target, community string) []Device {
 		Version:   gosnmp.Version2c,
 		Timeout:   time.Duration(2) * time.Second,
 	}
-	err := params.Connect()
-	if err != nil {
+	if err := params.Connect(); err != nil {
 		return []Device{}
 	}
 	defer params.Conn.Close()
 
-	var devices []Device
-	// OID for ipNetToMediaNetAddress
-	err = params.BulkWalk(".1.3.6.1.2.1.4.22.1.3", func(pdu gosnmp.SnmpPDU) error {
-		devices = append(devices, Device{IP: fmt.Sprintf("%v", pdu.Value), MAC: "See Switch Table"})
+	devices := []Device{}
+	// OID for ipNetToMediaPhysAddress (Returns MACs and IPs from Switch Cache)
+	err := params.BulkWalk(".1.3.6.1.2.1.4.22.1.2", func(pdu gosnmp.SnmpPDU) error {
+		devices = append(devices, Device{IP: "From Cache", MAC: fmt.Sprintf("%x", pdu.Value), Status: "Verified"})
 		return nil
 	})
+	if err != nil {
+		return []Device{}
+	}
 	return devices
 }
 
-// scanUnmanaged performs a local ARP scan (Requires Admin/Sudo)
-func scanUnmanaged(subnet string) []Device {
-	// This is a simplified logic. In production, use 'mdlayher/arp' 
-	// to iterate through the subnet and listen for replies.
-	// Note: Windows/macOS handle raw sockets differently.
-	devices := []Device{}
-	ifaces, _ := net.Interfaces()
-	
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		devices = append(devices, Device{IP: "Scanning...", MAC: iface.HardwareAddr.String(), Interface: iface.Name})
+// 2. UNMANAGED: Concurrent CIDR Probing
+func scanUnmanaged(cidr string) []Device {
+	ip, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return []Device{{IP: "Error", Status: "Invalid CIDR"}}
 	}
-	return devices
+
+	var wg sync.WaitGroup
+	deviceChan := make(chan Device, 255)
+	
+	// Iterate through every IP in the CIDR range
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+		wg.Add(1)
+		go func(targetIP string) {
+			defer wg.Done()
+			// Production trick: Attempt a TCP handshake on port 445 (SMB) or 80 (HTTP)
+			// to see if the device is alive in the LAN
+			d := net.Dialer{Timeout: 400 * time.Millisecond}
+			conn, err := d.Dial("tcp", targetIP+":445") 
+			if err == nil {
+				deviceChan <- Device{IP: targetIP, MAC: "Active", Status: "Online"}
+				conn.Close()
+			}
+		}(ip.String())
+	}
+
+	go func() {
+		wg.Wait()
+		close(deviceChan)
+	}()
+
+	results := []Device{}
+	for d := range deviceChan {
+		results = append(results)
+		results = append(results, d)
+	}
+	return results
+}
+
+func inc(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
 }

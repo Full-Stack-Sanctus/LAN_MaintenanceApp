@@ -87,6 +87,20 @@ Each compiled binary is bundled with Tauri during the build process.
 
 ---
 
+## The Data Flow (How they talk)
+
+* Vue sends a JSON object to Rust.
+
+* Rust starts the Go executable as a separate process (a "Sidecar").
+
+* Go performs the network logic and prints a JSON string to its STDOUT (Standard Output).
+
+* Rust "catches" that string and passes it back to Vue.
+
+* Vue runs JSON.parse() to turn that text back into a clickable list of devices.
+
+---
+
 ## 🚀 Key Features
 
 * Cross-platform desktop support
