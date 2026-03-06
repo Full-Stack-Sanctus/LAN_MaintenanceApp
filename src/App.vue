@@ -60,7 +60,7 @@ const exportCSV = () => {
 </script>
 
 <template>
-  <main class="relative min-h-screen bg-[#050505] text-slate-300 font-sans selection:bg-blue-500/40 overflow-x-hidden">
+  <main class="relative min-h-screen text-slate-300 font-sans overflow-x-hidden">
     
     <div class="fixed inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
       <h1 class="text-[15vw] font-black text-white/[0.02] uppercase tracking-[2rem] leading-none whitespace-nowrap rotate-[-12deg]">
@@ -130,7 +130,7 @@ const exportCSV = () => {
             </div>
           </section>
 
-          <div v-if="report" class="p-6 rounded-3xl border border-white/5 bg-gradient-to-br from-blue-500/[0.03] to-transparent">
+          <div v-if="report" class="p-6 rounded-3xl border border-white/5 bg-gradient-to-br from-blue-500/[0.03] to-transparent animate-empire-in">
             <div class="flex justify-between items-start mb-4">
               <h3 class="text-[10px] font-black uppercase tracking-widest text-blue-500">Node Performance</h3>
               <span class="text-[10px] font-mono text-slate-600">{{ report.timestamp }}</span>
@@ -150,7 +150,7 @@ const exportCSV = () => {
              <p class="text-[11px] font-black tracking-[0.3em] uppercase text-slate-600">Awaiting Command Input</p>
           </div>
 
-          <div v-if="report" class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+          <div v-if="report" class="space-y-6 animate-empire-in">
             <div class="flex items-center justify-between gap-6">
               <div class="relative flex-1">
                 <span class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600">
@@ -199,29 +199,3 @@ const exportCSV = () => {
     </div>
   </main>
 </template>
-
-<style scoped>
-/* Custom animations for the "Empire" feel */
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.animate-in {
-  animation: fade-in 0.8s ease-out forwards;
-}
-
-::-webkit-scrollbar {
-  width: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #1a1a1e;
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #2a2a2e;
-}
-</style>

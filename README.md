@@ -20,7 +20,8 @@ Operating System (SNMP, ARP, Network Stack)
 
 * **Framework:** Tauri v2
 * **UI Template:** Vue
-* **Language:** TypeScript / JavaScript
+* **UI Flavour:** Tailwind
+* **Language:** TypeScript
 * **Package Manager:** npm
 
 The frontend provides a modern, reactive UI built with Vue and TypeScript.
