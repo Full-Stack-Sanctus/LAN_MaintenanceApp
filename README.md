@@ -208,3 +208,7 @@ It leverages heavy lifting from the underlying OS while keeping the application 
 * Remote management module
 
 ---
+
+[![Download](https://img.shields.io/github/v/release/USER/REPO?label=Download%20Latest)](https://github.com/Full-Stack-Sanctus/LAN_MaintenanceApp/releases/latest/download/lan-maintenanceapp_0.1.0_x64-setup.exe)
+
+---
