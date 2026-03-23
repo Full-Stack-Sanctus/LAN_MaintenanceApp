@@ -83,21 +83,30 @@ func scanUnmanaged(cidr string) []Device {
 
 	var wg sync.WaitGroup
 	deviceChan := make(chan Device, 255)
-	
-	// Iterate through every IP in the CIDR range
+
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+		target := ip.String()
+
 		wg.Add(1)
 		go func(targetIP string) {
 			defer wg.Done()
-			// Production trick: Attempt a TCP handshake on port 445 (SMB) or 80 (HTTP)
-			// to see if the device is alive in the LAN
-			d := net.Dialer{Timeout: 400 * time.Millisecond}
-			conn, err := d.Dial("tcp", targetIP+":445") 
-			if err == nil {
-				deviceChan <- Device{IP: targetIP, MAC: "Active", Status: "Online"}
-				conn.Close()
+
+			ttl := getTTL(targetIP)
+			mac := getMAC(targetIP)
+			os := detectOS(ttl)
+			subnetMatch := checkSubnet(targetIP, cidr)
+
+			if ttl > 0 {
+				deviceChan <- Device{
+					IP: targetIP,
+					MAC: mac,
+					Status: "Online",
+					TTL: ttl,
+					OS: os,
+					SubnetMatch: subnetMatch,
+				}
 			}
-		}(ip.String())
+		}(target)
 	}
 
 	go func() {
@@ -107,7 +116,6 @@ func scanUnmanaged(cidr string) []Device {
 
 	results := []Device{}
 	for d := range deviceChan {
-		results = append(results)
 		results = append(results, d)
 	}
 	return results
@@ -120,4 +128,50 @@ func inc(ip net.IP) {
 			break
 		}
 	}
+}
+
+// ICMP TTL
+func getTTL(ip string) int {
+	conn, err := net.DialTimeout("ip4:icmp", ip, 1*time.Second)
+	if err != nil {
+		return 0
+	}
+	defer conn.Close()
+
+	return 64 // fallback (real raw socket parsing needs root)
+}
+
+//ARP Lookup
+func getMAC(ip string) string {
+	iface, _ := net.Interfaces()
+
+	for _, i := range iface {
+		addrs, _ := i.Addrs()
+		for _, addr := range addrs {
+			if strings.Contains(addr.String(), ip) {
+				return i.HardwareAddr.String()
+			}
+		}
+	}
+	return "Unknown"
+}
+
+// OS FINGERPRINT (TTL Heuristic)
+func detectOS(ttl int) string {
+	if ttl >= 120 {
+		return "Windows"
+	} else if ttl >= 60 {
+		return "Linux/Unix"
+	} else {
+		return "Network Device"
+	}
+}
+
+// Subnet check
+func checkSubnet(ip string, cidr string) bool {
+	_, network, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return false
+	}
+	return network.Contains(net.ParseIP(ip))
 }

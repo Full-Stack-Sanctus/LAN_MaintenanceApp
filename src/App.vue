@@ -7,6 +7,9 @@ interface Device {
   ip: string;
   mac: string;
   status: string;
+  ttl?: number;
+  os?: string;
+  subnetMatch?: boolean;
 }
 
 interface NetworkReport {
@@ -17,11 +20,14 @@ interface NetworkReport {
   performance: string;
 }
 
+
 const targetCidr = ref("192.168.1.0/24");
 const community = ref("");
 const report = ref<NetworkReport | null>(null);
 const isScanning = ref(false);
 const searchQuery = ref("");
+
+const selectedDevice = ref<Device | null>(null);
 
 const filteredDevices = computed(() => {
   if (!report.value) return [];
@@ -29,6 +35,15 @@ const filteredDevices = computed(() => {
     d.ip.includes(searchQuery.value) || d.mac.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
 });
+
+function openDevice(device: Device) {
+  selectedDevice.value = device;
+}
+
+function closeDevice() {
+  selectedDevice.value = null;
+}
+
 
 async function startAudit() {
   if (isScanning.value) return;
@@ -168,11 +183,22 @@ const exportCSV = () => {
             <div class="bg-[#0a0a0c] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl backdrop-blur-sm">
               <table class="w-full text-left">
                 <thead>
-                  <tr class="text-[10px] uppercase tracking-[0.2em] text-slate-600 border-b border-white/5 bg-white/[0.02]">
+                      
+                    <tr 
+                      v-for="device in filteredDevices" 
+                      :key="device.ip"
+                      @click="openDevice(device)"
+                      class="cursor-pointer hover:bg-blue-500/[0.02] transition-colors group"
+                    >
+                        
                     <th class="px-8 py-6 font-black">Endpoint Address</th>
                     <th class="px-8 py-6 font-black">Hardware Identity</th>
                     <th class="px-8 py-6 font-black text-right">Verification</th>
+                    
+                    <th class="px-8 py-6 font-black">TTL / OS</th>
+                    <th class="px-8 py-6 font-black">Subnet</th>
                   </tr>
+                  
                 </thead>
                 <tbody class="divide-y divide-white/5">
                   <tr v-for="device in filteredDevices" :key="device.ip" class="hover:bg-blue-500/[0.02] transition-colors group">
@@ -188,6 +214,18 @@ const exportCSV = () => {
                         Online
                       </span>
                     </td>
+                    
+                    
+                    <td class="px-8 py-6 text-xs font-mono">
+                      {{ device.ttl }} / {{ device.os }}
+                    </td>
+
+                    <td class="px-8 py-6 text-xs">
+                      <span :class="device.subnetMatch ? 'text-green-400' : 'text-red-400'">
+                        {{ device.subnetMatch ? 'Same' : 'Mismatch' }}
+                      </span>
+                    </td>
+
                   </tr>
                 </tbody>
               </table>
@@ -198,4 +236,34 @@ const exportCSV = () => {
       </div>
     </div>
   </main>
+  
+  <div v-if="selectedDevice" class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
+    <div class="bg-[#0a0a0c] p-10 rounded-3xl border border-white/10 w-[500px]">
+    
+      <h2 class="text-xl font-bold mb-6 text-blue-400">Device Intelligence</h2>
+
+      <div class="space-y-3 text-sm font-mono">
+        <p><b>IP:</b> {{ selectedDevice.ip }}</p>
+        <p><b>MAC:</b> {{ selectedDevice.mac }}</p>
+        <p><b>Status:</b> {{ selectedDevice.status }}</p>
+        <p><b>TTL:</b> {{ selectedDevice.ttl }}</p>
+        <p><b>OS Guess:</b> {{ selectedDevice.os }}</p>
+        <p>
+          <b>Subnet Match:</b> 
+          <span :class="selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
+            {{ selectedDevice.subnetMatch ? 'Yes' : 'Mismatch' }}
+          </span>
+        </p>
+      </div>
+
+      <button 
+        @click="closeDevice"
+        class="mt-8 w-full py-3 bg-white text-black rounded-xl font-bold"
+      >
+        Back
+      </button>
+    </div>
+  </div>
+
+
 </template>
