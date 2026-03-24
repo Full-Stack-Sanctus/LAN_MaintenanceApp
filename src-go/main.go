@@ -7,14 +7,27 @@ import (
 	"net"
 	"sync"
 	"time"
+	"strings"
+	
+	"os/exec"
+	"regexp"
+	"strconv"
 
 	"github.com/gosnmp/gosnmp"
 )
 
+var (
+	ttlRegex = regexp.MustCompile(`ttl[=\s](\d+)`)
+	macRegex = regexp.MustCompile(`lladdr\s+([0-9a-fA-F:]+)`)
+)
+
 type Device struct {
-	IP        string `json:"ip"`
-	MAC       string `json:"mac"`
-	Status    string `json:"status"`
+	IP           string `json:"ip"`
+	MAC          string `json:"mac"`
+	Status       string `json:"status"`
+	TTL          int    `json:"ttl"`
+	OS           string `json:"os"`
+	SubnetMatch  bool   `json:"subnetMatch"`
 }
 
 type NetworkReport struct {
@@ -81,23 +94,30 @@ func scanUnmanaged(cidr string) []Device {
 		return []Device{{IP: "Error", Status: "Invalid CIDR"}}
 	}
 
+	const workerCount = 50 // 🔥 Tune this (30–100 depending on system)
+
+	jobs := make(chan string, 512)
+	resultsChan := make(chan Device, 512)
+
 	var wg sync.WaitGroup
-	deviceChan := make(chan Device, 255)
 
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		target := ip.String()
-
+	// 🔥 Worker Pool
+	for w := 0; w < workerCount; w++ {
 		wg.Add(1)
-		go func(targetIP string) {
+		go func() {
 			defer wg.Done()
+			for targetIP := range jobs {
 
-			ttl := getTTL(targetIP)
-			mac := getMAC(targetIP)
-			os := detectOS(ttl)
-			subnetMatch := checkSubnet(targetIP, cidr)
+				ttl := getTTL(targetIP)
+				if ttl == 0 {
+					continue
+				}
 
-			if ttl > 0 {
-				deviceChan <- Device{
+				mac := getMAC(targetIP)
+				os := detectOS(ttl)
+				subnetMatch := checkSubnet(targetIP, cidr)
+
+				resultsChan <- Device{
 					IP: targetIP,
 					MAC: mac,
 					Status: "Online",
@@ -106,54 +126,66 @@ func scanUnmanaged(cidr string) []Device {
 					SubnetMatch: subnetMatch,
 				}
 			}
-		}(target)
+		}()
 	}
 
+	// 🔥 Feed jobs
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+		jobs <- ip.String()
+	}
+	close(jobs)
+
+	// 🔥 Close results when done
 	go func() {
 		wg.Wait()
-		close(deviceChan)
+		close(resultsChan)
 	}()
 
 	results := []Device{}
-	for d := range deviceChan {
+	for d := range resultsChan {
 		results = append(results, d)
 	}
-	return results
-}
 
-func inc(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
+	return results
 }
 
 // ICMP TTL
 func getTTL(ip string) int {
-	conn, err := net.DialTimeout("ip4:icmp", ip, 1*time.Second)
+	cmd := exec.Command("ping", "-c", "1", "-W", "1", ip)
+
+	output, err := cmd.Output()
 	if err != nil {
 		return 0
 	}
-	defer conn.Close()
 
-	return 64 // fallback (real raw socket parsing needs root)
+	matches := ttlRegex.FindStringSubmatch(string(output))
+	if len(matches) < 2 {
+		return 0
+	}
+
+	ttl, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0
+	}
+
+	return ttl
 }
 
 //ARP Lookup
 func getMAC(ip string) string {
-	iface, _ := net.Interfaces()
+	cmd := exec.Command("ip", "neigh", "show", ip)
 
-	for _, i := range iface {
-		addrs, _ := i.Addrs()
-		for _, addr := range addrs {
-			if strings.Contains(addr.String(), ip) {
-				return i.HardwareAddr.String()
-			}
-		}
+	output, err := cmd.Output()
+	if err != nil {
+		return "Unknown"
 	}
-	return "Unknown"
+
+	matches := macRegex.FindStringSubmatch(string(output))
+	if len(matches) < 2 {
+		return "Unknown"
+	}
+
+	return matches[1]
 }
 
 // OS FINGERPRINT (TTL Heuristic)
