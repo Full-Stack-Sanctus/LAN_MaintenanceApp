@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 	
+	"runtime"
+	"strings"
+	
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -157,9 +160,17 @@ func inc(ip net.IP) {
 	}
 }
 
-// ICMP TTL
+
+// ICMP TTL - Detects OS and uses correct Ping flags
 func getTTL(ip string) int {
-	cmd := exec.Command("ping", "-c", "1", "-W", "1", ip)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		// Windows: -n is count, -w is timeout in milliseconds
+		cmd = exec.Command("ping", "-n", "1", "-w", "1000", ip)
+	} else {
+		// Linux: -c is count, -W is timeout in seconds
+		cmd = exec.Command("ping", "-c", "1", "-W", "1", ip)
+	}
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -171,30 +182,35 @@ func getTTL(ip string) int {
 		return 0
 	}
 
-	ttl, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return 0
-	}
-
+	ttl, _ := strconv.Atoi(matches[1])
 	return ttl
 }
 
-//ARP Lookup
+// ARP Lookup - Swaps between 'arp -a' (Win) and 'ip neigh' (Linux)
 func getMAC(ip string) string {
-	cmd := exec.Command("ip", "neigh", "show", ip)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("arp", "-a", ip)
+	} else {
+		cmd = exec.Command("ip", "neigh", "show", ip)
+	}
 
 	output, err := cmd.Output()
 	if err != nil {
 		return "Unknown"
 	}
 
-	matches := macRegex.FindStringSubmatch(string(output))
-	if len(matches) < 2 {
+	// Updated Regex to catch both 00:AA:BB and 00-AA-BB formats
+	re := regexp.MustCompile(`([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})`)
+	mac := re.FindString(string(output))
+	
+	if mac == "" {
 		return "Unknown"
 	}
-
-	return matches[1]
+	// Standardize to colons for the UI
+	return strings.ReplaceAll(strings.ToLower(mac), "-", ":")
 }
+
 
 // OS FINGERPRINT (TTL Heuristic)
 func detectOS(ttl int) string {
