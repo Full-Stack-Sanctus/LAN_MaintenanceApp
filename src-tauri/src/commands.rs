@@ -24,6 +24,8 @@ pub async fn execute_enterprise_audit(
             command_args.push(comm);
         }
     }
+    
+    println!("Running with args: {:?}", command_args);
 
     let output = app
         .shell()
@@ -33,6 +35,9 @@ pub async fn execute_enterprise_audit(
         .output()
         .await
         .map_err(|e| format!("Execution error: {}", e))?;
+    
+    println!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
+    println!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
 
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
