@@ -175,10 +175,13 @@ func getTTL(ip string) int {
 		cmd = exec.Command("ping", "-c", "1", "-W", "1", ip)
 	}
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput() // Use CombinedOutput to see stderr
 	if err != nil {
-		return 0
-	}
+        fmt.Printf("Debug: Ping failed for %s: %v\n", ip, err)
+        return 0
+    }
+    
+    fmt.Printf("Debug: Ping output for %s: %s\n", ip, string(output))
 
 	matches := ttlRegex.FindStringSubmatch(string(output))
 	if len(matches) < 2 {
