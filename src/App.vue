@@ -278,7 +278,4 @@ const exportCSV = () => {
     </button>
   </div>
 
-  </div>
-
-
 </template>
