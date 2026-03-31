@@ -111,22 +111,24 @@ func scanUnmanaged(cidr string) []Device {
 			for targetIP := range jobs {
 
 				ttl := getTTL(targetIP)
-				if ttl == 0 {
-					continue
-				}
+				status := "Offline"
+                if ttl > 0 {
+                  status = "Online"
+                }
 
-				mac := getMAC(targetIP)
-				os := detectOS(ttl)
-				subnetMatch := checkSubnet(targetIP, cidr)
+                mac := getMAC(targetIP)
+                os := detectOS(ttl)
+                subnetMatch := checkSubnet(targetIP, cidr)
 
-				resultsChan <- Device{
-					IP: targetIP,
-					MAC: mac,
-					Status: "Online",
-					TTL: ttl,
-					OS: os,
-					SubnetMatch: subnetMatch,
-				}
+                resultsChan <- Device{
+                  IP: targetIP,
+                  MAC: mac,
+                  Status: status,
+                  TTL: ttl,
+                  OS: os,
+                  SubnetMatch: subnetMatch,
+                }
+
 			}
 		}()
 	}
