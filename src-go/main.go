@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	ttlRegex = regexp.MustCompile(`ttl[=\s](\d+)`)
+	ttlRegex = regexp.MustCompile(`(?i)ttl[=\s](\d+)`)
 	macRegex = regexp.MustCompile(`lladdr\s+([0-9a-fA-F:]+)`)
 )
 
@@ -180,13 +180,11 @@ func getTTL(ip string) int {
 
 	output, err := cmd.CombinedOutput() // Use CombinedOutput to see stderr
 	if err != nil {
-        fmt.Printf("Debug: Ping failed for %s: %v\n", ip, err)
+        //fmt.Printf("Debug: Ping failed for %s: %v\n", ip, err)
+        fmt.Fprintf(os.Stderr, "Debug: Ping failed for %s: %v\n", ip, err)
         return 0
     }
     
-    //fmt.Printf("Debug: Ping output for %s: %s\n", ip, string(output))
-    fmt.Fprintf(os.Stderr, "Debug: Ping failed for %s: %v\n", ip, err)
-
 	matches := ttlRegex.FindStringSubmatch(string(output))
 	if len(matches) < 2 {
 		return 0
