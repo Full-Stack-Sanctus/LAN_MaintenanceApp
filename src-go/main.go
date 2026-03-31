@@ -133,8 +133,11 @@ func scanUnmanaged(cidr string) []Device {
 
 	// 🔥 Feed jobs
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		jobs <- ip.String()
-	}
+      // CRITICAL: Must copy the IP, or every job gets the last IP in the loop
+      ipCopy := make(net.IP, len(ip))
+      copy(ipCopy, ip)
+      jobs <- ipCopy.String()
+    }
 	close(jobs)
 
 	// 🔥 Close results when done
