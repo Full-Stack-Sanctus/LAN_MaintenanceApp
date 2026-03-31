@@ -54,6 +54,7 @@ async function startAudit() {
     const result = await invoke<string>("execute_enterprise_audit", { 
       args: { target: targetCidr.value, community: community.value || null } 
     });
+    console.log("RAW RESULT:", result);
     report.value = JSON.parse(result);
   } catch (error) {
     console.error(error);
@@ -184,12 +185,7 @@ const exportCSV = () => {
               <table class="w-full text-left">
                 <thead>
                       
-                    <tr 
-                      v-for="device in filteredDevices" 
-                      :key="device.ip"
-                      @click="openDevice(device)"
-                      class="cursor-pointer hover:bg-blue-500/[0.02] transition-colors group"
-                    >
+                    <tr >
                         
                     <th class="px-8 py-6 font-black">Endpoint Address</th>
                     <th class="px-8 py-6 font-black">Hardware Identity</th>
@@ -201,7 +197,12 @@ const exportCSV = () => {
                   
                 </thead>
                 <tbody class="divide-y divide-white/5">
-                  <tr v-for="device in filteredDevices" :key="device.ip" class="hover:bg-blue-500/[0.02] transition-colors group">
+                  <tr 
+                    v-for="device in filteredDevices" 
+                    :key="device.ip" 
+                    @click="openDevice(device)" 
+                    class="hover:bg-blue-500/[0.02] transition-colors group"
+                  >
                     <td class="px-8 py-6">
                       <div class="flex items-center gap-3">
                         <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
@@ -210,9 +211,16 @@ const exportCSV = () => {
                     </td>
                     <td class="px-8 py-6 text-xs font-mono text-slate-500 group-hover:text-slate-300">{{ device.mac }}</td>
                     <td class="px-8 py-6 text-right">
-                      <span class="inline-flex items-center px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-500/5 text-emerald-500 border border-emerald-500/10">
-                        Online
+                      
+                      <span 
+                        class="inline-flex items-center px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border"
+                        :class="device.status === 'Online' 
+                          ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' 
+                          : 'bg-red-500/5 text-red-400 border-red-500/10'"
+                      >
+                        {{ device.status }}
                       </span>
+
                     </td>
                     
                     

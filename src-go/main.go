@@ -183,7 +183,8 @@ func getTTL(ip string) int {
         return 0
     }
     
-    fmt.Printf("Debug: Ping output for %s: %s\n", ip, string(output))
+    //fmt.Printf("Debug: Ping output for %s: %s\n", ip, string(output))
+    fmt.Fprintf(os.Stderr, "Debug: Ping failed for %s: %v\n", ip, err)
 
 	matches := ttlRegex.FindStringSubmatch(string(output))
 	if len(matches) < 2 {
