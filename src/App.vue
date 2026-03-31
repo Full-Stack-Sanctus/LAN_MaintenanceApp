@@ -31,9 +31,13 @@ const selectedDevice = ref<Device | null>(null);
 
 const filteredDevices = computed(() => {
   if (!report.value) return [];
-  return report.value.devices.filter(d => 
-    d.ip.includes(searchQuery.value) || d.mac.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
+
+  return report.value.devices
+    .filter(d => d.status === "Online") // 🔥 ONLY ONLINE
+    .filter(d => 
+      d.ip.includes(searchQuery.value) || 
+      d.mac.toLowerCase().includes(searchQuery.value.toLowerCase())
+    );
 });
 
 function openDevice(device: Device) {
@@ -201,12 +205,13 @@ const exportCSV = () => {
                     v-for="device in filteredDevices" 
                     :key="device.ip" 
                     @click="openDevice(device)" 
-                    class="hover:bg-blue-500/[0.02] transition-colors group"
+                    class="cursor-pointer hover:bg-blue-500/[0.05] transition"
                   >
                     <td class="px-8 py-6">
                       <div class="flex items-center gap-3">
                         <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
                         <span class="text-sm font-mono font-bold text-white group-hover:text-blue-400 transition-colors">{{ device.ip }}</span>
+                        <span class="text-xs text-slate-600">(view)</span>
                       </div>
                     </td>
                     <td class="px-8 py-6 text-xs font-mono text-slate-500 group-hover:text-slate-300">{{ device.mac }}</td>
@@ -245,32 +250,34 @@ const exportCSV = () => {
     </div>
   </main>
   
-  <div v-if="selectedDevice" class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
-    <div class="bg-[#0a0a0c] p-10 rounded-3xl border border-white/10 w-[500px]">
-    
-      <h2 class="text-xl font-bold mb-6 text-blue-400">Device Intelligence</h2>
+  <div 
+    v-if="selectedDevice" 
+    class="fixed top-0 right-0 h-full w-[400px] bg-[#0a0a0c] border-l border-white/10 shadow-2xl z-50 p-8 transition-transform"
+  >
+    <h2 class="text-lg font-bold mb-6 text-blue-400">Device Intelligence</h2>
 
-      <div class="space-y-3 text-sm font-mono">
-        <p><b>IP:</b> {{ selectedDevice.ip }}</p>
-        <p><b>MAC:</b> {{ selectedDevice.mac }}</p>
-        <p><b>Status:</b> {{ selectedDevice.status }}</p>
-        <p><b>TTL:</b> {{ selectedDevice.ttl }}</p>
-        <p><b>OS Guess:</b> {{ selectedDevice.os }}</p>
-        <p>
-          <b>Subnet Match:</b> 
-          <span :class="selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
-            {{ selectedDevice.subnetMatch ? 'Yes' : 'Mismatch' }}
-          </span>
-        </p>
-      </div>
-
-      <button 
-        @click="closeDevice"
-        class="mt-8 w-full py-3 bg-white text-black rounded-xl font-bold"
-      >
-        Back
-      </button>
+    <div class="space-y-3 text-sm font-mono">
+      <p><b>IP:</b> {{ selectedDevice.ip }}</p>
+      <p><b>MAC:</b> {{ selectedDevice.mac }}</p>
+      <p><b>Status:</b> {{ selectedDevice.status }}</p>
+      <p><b>TTL:</b> {{ selectedDevice.ttl }}</p>
+      <p><b>OS Guess:</b> {{ selectedDevice.os }}</p>
+      <p>
+        <b>Subnet Match:</b> 
+        <span :class="selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
+          {{ selectedDevice.subnetMatch ? 'Yes' : 'Mismatch' }}
+        </span>
+      </p>
     </div>
+
+    <button 
+      @click="closeDevice"
+      class="mt-8 w-full py-3 bg-white text-black rounded-xl font-bold"
+    >
+      Close
+    </button>
+  </div>
+
   </div>
 
 

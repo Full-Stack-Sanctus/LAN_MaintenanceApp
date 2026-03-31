@@ -118,7 +118,7 @@ func scanUnmanaged(cidr string) []Device {
                 }
 
                 mac := getMAC(targetIP)
-                os := detectOS(ttl)
+                os := detectOSAdvanced(targetIP, ttl)
                 subnetMatch := checkSubnet(targetIP, cidr)
 
                 resultsChan <- Device{
@@ -220,16 +220,53 @@ func getMAC(ip string) string {
 }
 
 
-// OS FINGERPRINT (TTL Heuristic)
-func detectOS(ttl int) string {
-	if ttl >= 120 {
-		return "Windows"
-	} else if ttl >= 60 {
-		return "Linux/Unix"
-	} else {
-		return "Network Device"
+
+func scanPorts(ip string) map[int]bool {
+	ports := []int{22, 80, 135, 139, 443, 445}
+	results := make(map[int]bool)
+
+	for _, port := range ports {
+		address := fmt.Sprintf("%s:%d", ip, port)
+		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
+		if err == nil {
+			results[port] = true
+			conn.Close()
+		}
 	}
+
+	return results
 }
+
+
+// OS FINGERPRINT (TTL Heuristic)
+func detectOSAdvanced(ip string, ttl int) string {
+	ports := scanPorts(ip)
+
+	// 🔥 Windows detection
+	if ports[445] || ports[135] {
+		return "Windows"
+	}
+
+	// 🔥 Linux detection
+	if ports[22] {
+		return "Linux/Unix"
+	}
+
+	// 🔥 Web servers / generic
+	if ports[80] || ports[443] {
+		return "Web Device"
+	}
+
+	// 🔥 Fallback
+	if ttl >= 120 {
+		return "Windows (TTL guess)"
+	} else if ttl >= 60 {
+		return "Unix-like (TTL guess)"
+	}
+
+	return "Unknown"
+}
+
 
 // Subnet check
 func checkSubnet(ip string, cidr string) bool {
