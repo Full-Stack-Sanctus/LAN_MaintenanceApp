@@ -252,27 +252,51 @@ const exportCSV = () => {
   
   <div 
     v-if="selectedDevice" 
-    class="fixed top-0 right-0 h-full w-[400px] bg-[#0a0a0c] border-l border-white/10 shadow-2xl z-50 p-8 transition-transform"
+    class="fixed top-0 right-0 h-full w-[400px] bg-gradient-to-br from-[#0f172a] via-[#020617] to-black border-l border-white/10 shadow-2xl z-50 p-8 transition-transform"
   >
-    <h2 class="text-lg font-bold mb-6 text-blue-400">Device Intelligence</h2>
+    <h2 class="text-xl font-black mb-6 text-white tracking-wide"> Device Intelligence </h2>
 
-    <div class="space-y-3 text-sm font-mono">
-      <p><b>IP:</b> {{ selectedDevice.ip }}</p>
-      <p><b>MAC:</b> {{ selectedDevice.mac }}</p>
-      <p><b>Status:</b> {{ selectedDevice.status }}</p>
-      <p><b>TTL:</b> {{ selectedDevice.ttl }}</p>
-      <p><b>OS Guess:</b> {{ selectedDevice.os }}</p>
-      <p>
-        <b>Subnet Match:</b> 
-        <span :class="selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
-          {{ selectedDevice.subnetMatch ? 'Yes' : 'Mismatch' }}
-        </span>
-      </p>
-    </div>
+    <div class="space-y-4 text-sm font-mono text-slate-200">
+
+  <div class="flex justify-between border-b border-white/5 pb-2">
+    <span class="text-slate-400">IP</span>
+    <span class="text-blue-400 font-bold">{{ selectedDevice.ip }}</span>
+  </div>
+
+  <div class="flex justify-between border-b border-white/5 pb-2">
+    <span class="text-slate-400">MAC</span>
+    <span class="text-indigo-400">{{ selectedDevice.mac }}</span>
+  </div>
+
+  <div class="flex justify-between border-b border-white/5 pb-2">
+    <span class="text-slate-400">Status</span>
+    <span :class="selectedDevice.status === 'Online' ? 'text-green-400' : 'text-red-400'">
+      {{ selectedDevice.status }}
+    </span>
+  </div>
+
+  <div class="flex justify-between border-b border-white/5 pb-2">
+    <span class="text-slate-400">TTL</span>
+    <span class="text-yellow-400">{{ selectedDevice.ttl }}</span>
+  </div>
+
+  <div class="flex justify-between border-b border-white/5 pb-2">
+    <span class="text-slate-400">OS Guess</span>
+    <span class="text-purple-400">{{ selectedDevice.os }}</span>
+  </div>
+
+  <div class="flex justify-between">
+    <span class="text-slate-400">Subnet</span>
+    <span :class="selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
+      {{ selectedDevice.subnetMatch ? 'Same' : 'Mismatch' }}
+    </span>
+  </div>
+
+</div>
 
     <button 
       @click="closeDevice"
-      class="mt-8 w-full py-3 bg-white text-black rounded-xl font-bold"
+      class="mt-8 w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white hover:opacity-90 rounded-xl font-bold"
     >
       Close
     </button>
