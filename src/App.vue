@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue';
 import { invoke } from "@tauri-apps/api/core";
 
-// Interfaces for strict production typing
 interface Device {
   ip: string;
   mac: string;
@@ -20,24 +19,37 @@ interface NetworkReport {
   performance: string;
 }
 
-
 const targetCidr = ref("192.168.1.0/24");
 const community = ref("");
 const report = ref<NetworkReport | null>(null);
 const isScanning = ref(false);
 const searchQuery = ref("");
-
 const selectedDevice = ref<Device | null>(null);
 
+// Helper function to convert an IPv4 string into a single comparable 32-bit number
+function ipToNumeric(ip: string): number {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(isNaN)) {
+    return 0; // Fallback for invalid IPs
+  }
+  // Bit-shift each octet to reconstruct the actual 32-bit integer value
+  return (parts[0] << 24) >>> 0 | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+}
+
+// Filtered and Sorted Computed Property
 const filteredDevices = computed(() => {
   if (!report.value) return [];
 
   return report.value.devices
-    .filter(d => d.status === "Online") // 🔥 ONLY ONLINE
+    .filter(d => d.status === "Online" || d.status === "Verified") 
     .filter(d => 
       d.ip.includes(searchQuery.value) || 
       d.mac.toLowerCase().includes(searchQuery.value.toLowerCase())
-    );
+    )
+    .sort((a, b) => {
+      // Sort in ascending numeric order (lowest IP to highest IP)
+      return ipToNumeric(a.ip) - ipToNumeric(b.ip);
+    });
 });
 
 function openDevice(device: Device) {
@@ -47,7 +59,6 @@ function openDevice(device: Device) {
 function closeDevice() {
   selectedDevice.value = null;
 }
-
 
 async function startAudit() {
   if (isScanning.value) return;
@@ -69,7 +80,7 @@ async function startAudit() {
 
 const exportCSV = () => {
   if (!report.value) return;
-  const content = "IP,MAC,Status\n" + report.value.devices.map(d => `${d.ip},${d.mac},${d.status}`).join("\n");
+  const content = "IP,MAC,Status,OS\n" + report.value.devices.map(d => `${d.ip},${d.mac},${d.status},${d.os || 'Unknown'}`).join("\n");
   const blob = new Blob([content], { type: 'text/csv' });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -81,13 +92,11 @@ const exportCSV = () => {
 
 <template>
   <main class="relative min-h-screen text-slate-300 font-sans overflow-x-hidden">
-    
     <div class="fixed inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
       <h1 class="text-[15vw] font-black text-white/[0.02] uppercase tracking-[2rem] leading-none whitespace-nowrap rotate-[-12deg]">
         EMPIRE NETWORK TOOL
       </h1>
     </div>
-
     <div class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full"></div>
     <div class="fixed bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
 
@@ -119,7 +128,6 @@ const exportCSV = () => {
 
     <div class="relative z-10 max-w-7xl mx-auto px-8 py-12">
       <div class="grid grid-cols-12 gap-10">
-        
         <aside class="col-span-12 lg:col-span-4 space-y-8">
           <section class="bg-[#0a0a0c]/80 backdrop-blur-md p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group">
             <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/40 to-transparent"></div>
@@ -150,7 +158,7 @@ const exportCSV = () => {
             </div>
           </section>
 
-          <div v-if="report" class="p-6 rounded-3xl border border-white/5 bg-gradient-to-br from-blue-500/[0.03] to-transparent animate-empire-in">
+          <div v-if="report" class="p-6 rounded-3xl border border-white/5 bg-gradient-to-br from-blue-500/[0.03] to-transparent">
             <div class="flex justify-between items-start mb-4">
               <h3 class="text-[10px] font-black uppercase tracking-widest text-blue-500">Node Performance</h3>
               <span class="text-[10px] font-mono text-slate-600">{{ report.timestamp }}</span>
@@ -170,7 +178,7 @@ const exportCSV = () => {
              <p class="text-[11px] font-black tracking-[0.3em] uppercase text-slate-600">Awaiting Command Input</p>
           </div>
 
-          <div v-if="report" class="space-y-6 animate-empire-in">
+          <div v-if="report" class="space-y-6">
             <div class="flex items-center justify-between gap-6">
               <div class="relative flex-1">
                 <span class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600">
@@ -188,17 +196,13 @@ const exportCSV = () => {
             <div class="bg-[#0a0a0c] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-3xl backdrop-blur-sm">
               <table class="w-full text-left">
                 <thead>
-                      
-                    <tr >
-                        
-                    <th class="px-8 py-6 font-black">Endpoint Address</th>
-                    <th class="px-8 py-6 font-black">Hardware Identity</th>
-                    <th class="px-8 py-6 font-black text-right">Verification</th>
-                    
-                    <th class="px-8 py-6 font-black">TTL / OS</th>
-                    <th class="px-8 py-6 font-black">Subnet</th>
+                  <tr>
+                    <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Endpoint Address</th>
+                    <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Hardware Identity</th>
+                    <th class="px-8 py-6 font-black text-xs uppercase text-slate-400 text-right">Verification</th>
+                    <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Fingerprint System</th>
+                    <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Subnet</th>
                   </tr>
-                  
                 </thead>
                 <tbody class="divide-y divide-white/5">
                   <tr 
@@ -210,42 +214,34 @@ const exportCSV = () => {
                     <td class="px-8 py-6">
                       <div class="flex items-center gap-3">
                         <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
-                        <span class="text-sm font-mono font-bold text-white group-hover:text-blue-400 transition-colors">{{ device.ip }}</span>
-                        <span class="text-xs text-slate-600">(view)</span>
+                        <span class="text-sm font-mono font-bold text-white transition-colors">{{ device.ip }}</span>
                       </div>
                     </td>
-                    <td class="px-8 py-6 text-xs font-mono text-slate-500 group-hover:text-slate-300">{{ device.mac }}</td>
+                    <td class="px-8 py-6 text-xs font-mono text-slate-500">{{ device.mac }}</td>
                     <td class="px-8 py-6 text-right">
-                      
                       <span 
                         class="inline-flex items-center px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border"
-                        :class="device.status === 'Online' 
+                        :class="device.status === 'Online' || device.status === 'Verified'
                           ? 'bg-emerald-500/5 text-emerald-500 border-emerald-500/10' 
                           : 'bg-red-500/5 text-red-400 border-red-500/10'"
                       >
                         {{ device.status }}
                       </span>
-
                     </td>
-                    
-                    
-                    <td class="px-8 py-6 text-xs font-mono">
-                      {{ device.ttl }} / {{ device.os }}
+                    <td class="px-8 py-6 text-xs text-slate-300 font-mono">
+                      {{ device.os }}
                     </td>
-
                     <td class="px-8 py-6 text-xs">
                       <span :class="device.subnetMatch ? 'text-green-400' : 'text-red-400'">
                         {{ device.subnetMatch ? 'Same' : 'Mismatch' }}
                       </span>
                     </td>
-
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
-
       </div>
     </div>
   </main>
@@ -255,51 +251,32 @@ const exportCSV = () => {
     class="fixed top-0 right-0 h-full w-[400px] bg-gradient-to-br from-[#0f172a] via-[#020617] to-black border-l border-white/10 shadow-2xl z-50 p-8 transition-transform"
   >
     <h2 class="text-xl font-black mb-6 text-white tracking-wide"> Device Intelligence </h2>
-
     <div class="space-y-4 text-sm font-mono text-slate-200">
-
-  <div class="flex justify-between border-b border-white/5 pb-2">
-    <span class="text-slate-400">IP</span>
-    <span class="text-blue-400 font-bold">{{ selectedDevice.ip }}</span>
-  </div>
-
-  <div class="flex justify-between border-b border-white/5 pb-2">
-    <span class="text-slate-400">MAC</span>
-    <span class="text-indigo-400">{{ selectedDevice.mac }}</span>
-  </div>
-
-  <div class="flex justify-between border-b border-white/5 pb-2">
-    <span class="text-slate-400">Status</span>
-    <span :class="selectedDevice.status === 'Online' ? 'text-green-400' : 'text-red-400'">
-      {{ selectedDevice.status }}
-    </span>
-  </div>
-
-  <div class="flex justify-between border-b border-white/5 pb-2">
-    <span class="text-slate-400">TTL</span>
-    <span class="text-yellow-400">{{ selectedDevice.ttl }}</span>
-  </div>
-
-  <div class="flex justify-between border-b border-white/5 pb-2">
-    <span class="text-slate-400">OS Guess</span>
-    <span class="text-purple-400">{{ selectedDevice.os }}</span>
-  </div>
-
-  <div class="flex justify-between">
-    <span class="text-slate-400">Subnet</span>
-    <span :class="selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
-      {{ selectedDevice.subnetMatch ? 'Same' : 'Mismatch' }}
-    </span>
-  </div>
-
-</div>
-
-    <button 
-      @click="closeDevice"
-      class="mt-8 w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white hover:opacity-90 rounded-xl font-bold"
-    >
-      Close
+      <div class="flex justify-between border-b border-white/5 pb-2">
+        <span class="text-slate-400">IP</span>
+        <span class="text-blue-400 font-bold">{{ selectedDevice.ip }}</span>
+      </div>
+      <div class="flex justify-between border-b border-white/5 pb-2">
+        <span class="text-slate-400">MAC</span>
+        <span class="text-indigo-400">{{ selectedDevice.mac }}</span>
+      </div>
+      <div class="flex justify-between border-b border-white/5 pb-2">
+        <span class="text-slate-400">Status</span>
+        <span :class="selectedDevice.status === 'Online' || selectedDevice.status === 'Verified' ? 'text-green-400' : 'text-red-400'">
+          {{ selectedDevice.status }}
+        </span>
+      </div>
+      <div class="flex justify-between border-b border-white/5 pb-2">
+        <span class="text-slate-400">TTL Baseline</span>
+        <span class="text-yellow-400">{{ selectedDevice.ttl || 'N/A' }}</span>
+      </div>
+      <div class="flex justify-between border-b border-white/5 pb-2">
+        <span class="text-slate-400">OS Footprint</span>
+        <span class="text-purple-400">{{ selectedDevice.os }}</span>
+      </div>
+    </div>
+    <button @click="closeDevice" class="mt-8 w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white rounded-xl font-bold">
+      Close Panel
     </button>
   </div>
-
 </template>

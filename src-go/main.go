@@ -5,32 +5,27 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"sync"
-	"time"
-	
-	"runtime"
-	"strings"
-	
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime"
 	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/gosnmp/gosnmp"
 )
 
-var (
-	ttlRegex = regexp.MustCompile(`(?i)ttl[=\s](\d+)`)
-	macRegex = regexp.MustCompile(`lladdr\s+([0-9a-fA-F:]+)`)
-)
+var ttlRegex = regexp.MustCompile(`(?i)ttl[=\s](\d+)`)
 
 type Device struct {
-	IP           string `json:"ip"`
-	MAC          string `json:"mac"`
-	Status       string `json:"status"`
-	TTL          int    `json:"ttl"`
-	OS           string `json:"os"`
-	SubnetMatch  bool   `json:"subnetMatch"`
+	IP          string `json:"ip"`
+	MAC         string `json:"mac"`
+	Status      string `json:"status"`
+	TTL         int    `json:"ttl"`
+	OS          string `json:"os"`
+	SubnetMatch bool   `json:"subnetMatch"`
 }
 
 type NetworkReport struct {
@@ -64,7 +59,7 @@ func main() {
 	fmt.Println(string(data))
 }
 
-// 1. MANAGED: Querying the Core Switch OID Table
+// 1. MANAGED: Querying Core Switch OID and extracting IP from OID suffix index
 func scanManaged(target, community string) []Device {
 	params := &gosnmp.GoSNMP{
 		Target:    target,
@@ -78,83 +73,121 @@ func scanManaged(target, community string) []Device {
 	}
 	defer params.Conn.Close()
 
-	devices := []Device{}
-	// OID for ipNetToMediaPhysAddress (Returns MACs and IPs from Switch Cache)
+	var devices []Device
+	// OID for ipNetToMediaPhysAddress contains the mapping table
 	err := params.BulkWalk(".1.3.6.1.2.1.4.22.1.2", func(pdu gosnmp.SnmpPDU) error {
-		devices = append(devices, Device{IP: "From Cache", MAC: fmt.Sprintf("%x", pdu.Value), Status: "Verified"})
+		if pdu.Value == nil {
+			return nil
+		}
+		
+		// Extract IP address from trailing OID elements (.1.sub.ip.ip.ip.ip)
+		parts := strings.Split(strings.TrimPrefix(pdu.Name, "."), ".")
+		if len(parts) < 4 {
+			return nil
+		}
+		ipStr := strings.Join(parts[len(parts)-4:], ".")
+
+		// Cast payload byte slice to formatted Hex string representation safely
+		var macStr string
+		if bytes, ok := pdu.Value.([]byte); ok {
+			var hexParts []string
+			for _, b := range bytes {
+				hexParts = append(hexParts, fmt.Sprintf("%02x", b))
+			}
+			macStr = strings.Join(hexParts, ":")
+		} else {
+			macStr = "Unknown"
+		}
+
+		devices = append(devices, Device{
+			IP:          ipStr,
+			MAC:         macStr,
+			Status:      "Verified",
+			SubnetMatch: true,
+			OS:          "Managed Network Node",
+		})
 		return nil
 	})
+
 	if err != nil {
 		return []Device{}
 	}
 	return devices
 }
 
-// 2. UNMANAGED: Concurrent CIDR Probing
+// 2. UNMANAGED: Two-Phase Discovery Sequence (Blaster + Global Reaper Cache)
 func scanUnmanaged(cidr string) []Device {
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return []Device{{IP: "Error", Status: "Invalid CIDR"}}
 	}
 
-	const workerCount = 50 // 🔥 Tune this (30–100 depending on system)
-
-	jobs := make(chan string, 512)
-	resultsChan := make(chan Device, 512)
-
+	const workerCount = 64
+	jobs := make(chan string, 1024)
+	resultsChan := make(chan Device, 1024)
 	var wg sync.WaitGroup
 
-	// 🔥 Worker Pool
+	// Phase 1: Fire Workers concurrently to wake targets up and open TCP connections
 	for w := 0; w < workerCount; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for targetIP := range jobs {
-
 				ttl := getTTL(targetIP)
-				status := "Offline"
-                if ttl > 0 {
-                  status = "Online"
-                }
+				ports := scanPorts(targetIP)
 
-                mac := getMAC(targetIP)
-                os := detectOSAdvanced(targetIP, ttl)
-                subnetMatch := checkSubnet(targetIP, cidr)
+				// CATCH STEALTH HOSTS: Online if they reply to ping OR expose open listening services
+				isOnline := ttl > 0 || len(ports) > 0
+				if !isOnline {
+					continue 
+				}
 
-                resultsChan <- Device{
-                  IP: targetIP,
-                  MAC: mac,
-                  Status: status,
-                  TTL: ttl,
-                  OS: os,
-                  SubnetMatch: subnetMatch,
-                }
+				status := "Online"
+				osGuess := detectOSAdvanced(ttl, ports)
+				subnetMatch := checkSubnet(targetIP, cidr)
 
+				resultsChan <- Device{
+					IP:          targetIP,
+					Status:      status,
+					TTL:         ttl,
+					OS:          osGuess,
+					SubnetMatch: subnetMatch,
+				}
 			}
 		}()
 	}
 
-	// 🔥 Feed jobs
+	// Queue up subnet space blocks
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-      // CRITICAL: Must copy the IP, or every job gets the last IP in the loop
-      ipCopy := make(net.IP, len(ip))
-      copy(ipCopy, ip)
-      jobs <- ipCopy.String()
-    }
+		ipCopy := make(net.IP, len(ip))
+		copy(ipCopy, ip)
+		jobs <- ipCopy.String()
+	}
 	close(jobs)
+	wg.Wait()
+	close(resultsChan)
 
-	// 🔥 Close results when done
-	go func() {
-		wg.Wait()
-		close(resultsChan)
-	}()
-
-	results := []Device{}
+	// Collect intermediate records
+	discoveredMap := make(map[string]Device)
 	for d := range resultsChan {
-		results = append(results, d)
+		discoveredMap[d.IP] = d
 	}
 
-	return results
+	// Phase 2: Wait briefly for kernel cache sync, dump full OS table lookup safely
+	time.Sleep(50 * time.Millisecond)
+	arpCache := readSystemARPCache()
+
+	var finalDevices []Device
+	for ipStr, device := range discoveredMap {
+		if mac, exists := arpCache[ipStr]; exists {
+			device.MAC = mac
+		} else {
+			device.MAC = "Unknown"
+		}
+		finalDevices = append(finalDevices, device)
+	}
+
+	return finalDevices
 }
 
 func inc(ip net.IP) {
@@ -166,25 +199,19 @@ func inc(ip net.IP) {
 	}
 }
 
-
-// ICMP TTL - Detects OS and uses correct Ping flags
 func getTTL(ip string) int {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		// Windows: -n is count, -w is timeout in milliseconds
-		cmd = exec.Command("ping", "-n", "1", "-w", "1000", ip)
+		cmd = exec.Command("ping", "-n", "1", "-w", "800", ip)
 	} else {
-		// Linux: -c is count, -W is timeout in seconds
 		cmd = exec.Command("ping", "-c", "1", "-W", "1", ip)
 	}
 
-	output, err := cmd.CombinedOutput() // Use CombinedOutput to see stderr
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-        //fmt.Printf("Debug: Ping failed for %s: %v\n", ip, err)
-        fmt.Fprintf(os.Stderr, "Debug: Ping failed for %s: %v\n", ip, err)
-        return 0
-    }
-    
+		return 0
+	}
+
 	matches := ttlRegex.FindStringSubmatch(string(output))
 	if len(matches) < 2 {
 		return 0
@@ -194,32 +221,37 @@ func getTTL(ip string) int {
 	return ttl
 }
 
-// ARP Lookup - Swaps between 'arp -a' (Win) and 'ip neigh' (Linux)
-func getMAC(ip string) string {
+// Unified Complete Table Reaper to extract MAC addresses without race conditions
+func readSystemARPCache() map[string]string {
+	cache := make(map[string]string)
 	var cmd *exec.Cmd
+
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("arp", "-a", ip)
+		cmd = exec.Command("arp", "-a")
 	} else {
-		cmd = exec.Command("ip", "neigh", "show", ip)
+		cmd = exec.Command("ip", "neigh", "show")
 	}
 
 	output, err := cmd.Output()
 	if err != nil {
-		return "Unknown"
+		return cache
 	}
 
-	// Updated Regex to catch both 00:AA:BB and 00-AA-BB formats
-	re := regexp.MustCompile(`([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})`)
-	mac := re.FindString(string(output))
-	
-	if mac == "" {
-		return "Unknown"
+	lines := strings.Split(string(output), "\n")
+	ipRegex := regexp.MustCompile(`\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b`)
+	macRegex := regexp.MustCompile(`([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})`)
+
+	for _, line := range lines {
+		foundIP := ipRegex.FindString(line)
+		foundMAC := macRegex.FindString(line)
+
+		if foundIP != "" && foundMAC != "" {
+			standardizedMAC := strings.ReplaceAll(strings.ToLower(foundMAC), "-", ":")
+			cache[foundIP] = standardizedMAC
+		}
 	}
-	// Standardize to colons for the UI
-	return strings.ReplaceAll(strings.ToLower(mac), "-", ":")
+	return cache
 }
-
-
 
 func scanPorts(ip string) map[int]bool {
 	ports := []int{22, 80, 135, 139, 443, 445}
@@ -227,48 +259,33 @@ func scanPorts(ip string) map[int]bool {
 
 	for _, port := range ports {
 		address := fmt.Sprintf("%s:%d", ip, port)
-		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", address, 250*time.Millisecond)
 		if err == nil {
 			results[port] = true
 			conn.Close()
 		}
 	}
-
 	return results
 }
 
-
-// OS FINGERPRINT (TTL Heuristic)
-func detectOSAdvanced(ip string, ttl int) string {
-	ports := scanPorts(ip)
-
-	// 🔥 Windows detection
-	if ports[445] || ports[135] {
-		return "Windows"
+func detectOSAdvanced(ttl int, ports map[int]bool) string {
+	if ports[445] || ports[135] || ports[139] {
+		return "Windows Server/Workstation"
 	}
-
-	// 🔥 Linux detection
 	if ports[22] {
-		return "Linux/Unix"
+		return "Linux/Unix Environment"
 	}
-
-	// 🔥 Web servers / generic
 	if ports[80] || ports[443] {
-		return "Web Device"
+		return "Embedded Web Device"
 	}
-
-	// 🔥 Fallback
 	if ttl >= 120 {
-		return "Windows (TTL guess)"
+		return "Windows OS (TTL heuristic)"
 	} else if ttl >= 60 {
-		return "Unix-like (TTL guess)"
+		return "Linux/Unix OS (TTL heuristic)"
 	}
-
-	return "Unknown"
+	return "Generic Network Endpoint"
 }
 
-
-// Subnet check
 func checkSubnet(ip string, cidr string) bool {
 	_, network, err := net.ParseCIDR(cidr)
 	if err != nil {
