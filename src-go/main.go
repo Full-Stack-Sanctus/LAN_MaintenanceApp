@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
