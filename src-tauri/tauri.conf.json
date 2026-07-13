@@ -34,6 +34,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": [
+      "drivers/npcap-installer.exe"
+    ],
     "linux": {
       "deb": {
         "depends": [
@@ -45,7 +48,11 @@
     },
     "windows": {
       "nsis": {
-        "customBeforeInstallScript": "installer/install_dependencies.nsh"
+        "preinstall": "drivers/npcap-installer.exe",
+        "preinstallArgs": [
+          "/loopback_support=yes",
+          "/winpcap_mode=yes"
+        ]
       }
     }
   },
