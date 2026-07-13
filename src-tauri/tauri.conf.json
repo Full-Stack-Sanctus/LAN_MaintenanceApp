@@ -10,7 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "withGlobalTauri": true,
     "windows": [
       {
         "devtools": true,
@@ -19,16 +18,27 @@
         "height": 600,
         "url": "/"
       }
-    ],
-    "security": {
-      "csp": null
-    }
+    ]
   },
   "bundle": {
     "externalBin": [
       "binaries/network-engine"
     ],
     "active": true,
+    "category": "Network",
+    "debian": {
+      "depends": [
+        "libwebkit2gtk-4.1-0",
+        "libgtk-3-0",
+        "libpcap0.8"
+      ]
+    },
+    "windows": {
+      "nsis": {
+        "installerArgs": [],
+        "customBeforeInstallScript": "installer/install_dependencies.nsh"
+      }
+    },
     "targets": "all",
     "icon": [
       "icons/32x32.png",

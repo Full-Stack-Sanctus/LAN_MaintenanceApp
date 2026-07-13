@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { invoke } from "@tauri-apps/api/core";
 
+// Interfaces for strict production typing
 interface Device {
   ip: string;
   mac: string;
@@ -26,17 +27,19 @@ const isScanning = ref(false);
 const searchQuery = ref("");
 const selectedDevice = ref<Device | null>(null);
 
-// Helper function to convert an IPv4 string into a single comparable 32-bit number
+/**
+ * Converts an IPv4 dotted string into a unique 32-bit mathematical integer value.
+ * Essential for precise numeric ordering (e.g., 192.168.1.2 pops cleanly above 192.168.1.100).
+ */
 function ipToNumeric(ip: string): number {
   const parts = ip.split('.').map(Number);
   if (parts.length !== 4 || parts.some(isNaN)) {
-    return 0; // Fallback for invalid IPs
+    return 0; // Guard clause against structurally compromised address nodes
   }
-  // Bit-shift each octet to reconstruct the actual 32-bit integer value
   return (parts[0] << 24) >>> 0 | (parts[1] << 16) | (parts[2] << 8) | parts[3];
 }
 
-// Filtered and Sorted Computed Property
+// Filtered and Absolute Sorted Computed Array Block
 const filteredDevices = computed(() => {
   if (!report.value) return [];
 
@@ -47,7 +50,7 @@ const filteredDevices = computed(() => {
       d.mac.toLowerCase().includes(searchQuery.value.toLowerCase())
     )
     .sort((a, b) => {
-      // Sort in ascending numeric order (lowest IP to highest IP)
+      // Enforces ascending linear numeric placement across the UI dashboard
       return ipToNumeric(a.ip) - ipToNumeric(b.ip);
     });
 });
@@ -92,11 +95,13 @@ const exportCSV = () => {
 
 <template>
   <main class="relative min-h-screen text-slate-300 font-sans overflow-x-hidden">
+    
     <div class="fixed inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
       <h1 class="text-[15vw] font-black text-white/[0.02] uppercase tracking-[2rem] leading-none whitespace-nowrap rotate-[-12deg]">
         EMPIRE NETWORK TOOL
       </h1>
     </div>
+
     <div class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full"></div>
     <div class="fixed bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
 
@@ -128,6 +133,7 @@ const exportCSV = () => {
 
     <div class="relative z-10 max-w-7xl mx-auto px-8 py-12">
       <div class="grid grid-cols-12 gap-10">
+        
         <aside class="col-span-12 lg:col-span-4 space-y-8">
           <section class="bg-[#0a0a0c]/80 backdrop-blur-md p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden group">
             <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500/40 to-transparent"></div>
@@ -200,7 +206,7 @@ const exportCSV = () => {
                     <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Endpoint Address</th>
                     <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Hardware Identity</th>
                     <th class="px-8 py-6 font-black text-xs uppercase text-slate-400 text-right">Verification</th>
-                    <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Fingerprint System</th>
+                    <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Layer Identification Type / OS</th>
                     <th class="px-8 py-6 font-black text-xs uppercase text-slate-400">Subnet</th>
                   </tr>
                 </thead>
@@ -209,12 +215,13 @@ const exportCSV = () => {
                     v-for="device in filteredDevices" 
                     :key="device.ip" 
                     @click="openDevice(device)" 
-                    class="cursor-pointer hover:bg-blue-500/[0.05] transition"
+                    class="cursor-pointer hover:bg-blue-500/[0.05] transition group"
                   >
                     <td class="px-8 py-6">
                       <div class="flex items-center gap-3">
                         <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
-                        <span class="text-sm font-mono font-bold text-white transition-colors">{{ device.ip }}</span>
+                        <span class="text-sm font-mono font-bold text-white group-hover:text-blue-400 transition-colors">{{ device.ip }}</span>
+                        <span class="text-[10px] text-slate-600 lowercase font-mono">(view)</span>
                       </div>
                     </td>
                     <td class="px-8 py-6 text-xs font-mono text-slate-500">{{ device.mac }}</td>
@@ -229,7 +236,7 @@ const exportCSV = () => {
                       </span>
                     </td>
                     <td class="px-8 py-6 text-xs text-slate-300 font-mono">
-                      {{ device.os }}
+                      {{ device.os || 'Hardware Target' }}
                     </td>
                     <td class="px-8 py-6 text-xs">
                       <span :class="device.subnetMatch ? 'text-green-400' : 'text-red-400'">
@@ -242,6 +249,7 @@ const exportCSV = () => {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   </main>
@@ -251,32 +259,43 @@ const exportCSV = () => {
     class="fixed top-0 right-0 h-full w-[400px] bg-gradient-to-br from-[#0f172a] via-[#020617] to-black border-l border-white/10 shadow-2xl z-50 p-8 transition-transform"
   >
     <h2 class="text-xl font-black mb-6 text-white tracking-wide"> Device Intelligence </h2>
+
     <div class="space-y-4 text-sm font-mono text-slate-200">
       <div class="flex justify-between border-b border-white/5 pb-2">
         <span class="text-slate-400">IP</span>
         <span class="text-blue-400 font-bold">{{ selectedDevice.ip }}</span>
       </div>
+
       <div class="flex justify-between border-b border-white/5 pb-2">
         <span class="text-slate-400">MAC</span>
         <span class="text-indigo-400">{{ selectedDevice.mac }}</span>
       </div>
+
       <div class="flex justify-between border-b border-white/5 pb-2">
         <span class="text-slate-400">Status</span>
         <span :class="selectedDevice.status === 'Online' || selectedDevice.status === 'Verified' ? 'text-green-400' : 'text-red-400'">
           {{ selectedDevice.status }}
         </span>
       </div>
+
       <div class="flex justify-between border-b border-white/5 pb-2">
-        <span class="text-slate-400">TTL Baseline</span>
-        <span class="text-yellow-400">{{ selectedDevice.ttl || 'N/A' }}</span>
+        <span class="text-slate-400">OS Context</span>
+        <span class="text-purple-400">{{ selectedDevice.os || 'Unknown' }}</span>
       </div>
-      <div class="flex justify-between border-b border-white/5 pb-2">
-        <span class="text-slate-400">OS Footprint</span>
-        <span class="text-purple-400">{{ selectedDevice.os }}</span>
+
+      <div class="flex justify-between">
+        <span class="text-slate-400">Subnet Matching</span>
+        <span :class="selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
+          {{ selectedDevice.subnetMatch ? 'Same' : 'Mismatch' }}
+        </span>
       </div>
     </div>
-    <button @click="closeDevice" class="mt-8 w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white rounded-xl font-bold">
-      Close Panel
+
+    <button 
+      @click="closeDevice"
+      class="mt-8 w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-400 text-white hover:opacity-90 rounded-xl font-black uppercase text-xs tracking-widest transition-all"
+    >
+      Close Registry Panel
     </button>
   </div>
 </template>

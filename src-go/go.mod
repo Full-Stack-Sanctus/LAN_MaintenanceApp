@@ -3,6 +3,7 @@ module lan-monitor/backend
 go 1.25.0
 
 require (
+	github.com/google/gopacket v1.1.19 // indirect
 	github.com/gosnmp/gosnmp v1.43.2 // indirect
 	github.com/josharian/native v1.0.0 // indirect
 	github.com/mdlayher/arp v0.0.0-20220512170110-6706a2966875 // indirect
