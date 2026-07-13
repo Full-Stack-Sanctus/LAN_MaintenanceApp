@@ -164,7 +164,7 @@ func scanUnmanagedLayer2(cidr string) []Device {
 				arpPad := arpLayer.(*layers.ARP)
 				
 				// Validate it's an ARP Reply operation
-				if arpPad.Operation != layers.ARPOpReply {
+				if arpPad.Operation != layers.ARPReply {
 					continue
 				}
 
@@ -231,17 +231,18 @@ func writeARPFrame(handle *pcap.Handle, iface *net.Interface, srcIP net.IP, dstI
 		DstMAC:       net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, // Broadcast target address Frame block
 		EthernetType: layers.EthernetTypeARP,
 	}
+	
 	arpLayer := &layers.ARP{
-		AddrType:          layers.LinkTypeEthernet,
-		ProtoType:         layers.EthernetTypeIPv4,
-		HwAddressSize:     6,
-		ProtAddressSize:   4,
-		Operation:         layers.ARPOpRequest,
-		SourceHwAddress:   []byte(iface.HardwareAddr),
-		SourceProtAddress: []byte(srcIP.To4()),
-		DstHwAddress:      []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-		DstProtAddress:    []byte(dstIP.To4()),
-	}
+    	AddrType:          layers.LinkTypeEthernet,
+    	Protocol:          layers.EthernetTypeIPv4, // Fixed: ProtoType -> Protocol
+    	HwAddressSize:     6,
+    	ProtAddressSize:   4,
+    	Operation:         layers.ARPRequest,       // Fixed: ARPOpRequest -> ARPRequest
+    	SourceHwAddress:   []byte(iface.HardwareAddr),
+    	SourceProtAddress: []byte(srcIP.To4()),
+    	DstHwAddress:      []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+    	DstProtAddress:    []byte(dstIP.To4()),
+    }
 
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
