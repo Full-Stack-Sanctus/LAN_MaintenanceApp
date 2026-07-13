@@ -26,19 +26,6 @@
     ],
     "active": true,
     "category": "Network",
-    "debian": {
-      "depends": [
-        "libwebkit2gtk-4.1-0",
-        "libgtk-3-0",
-        "libpcap0.8"
-      ]
-    },
-    "windows": {
-      "nsis": {
-        "installerArgs": [],
-        "customBeforeInstallScript": "installer/install_dependencies.nsh"
-      }
-    },
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -46,7 +33,21 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libpcap0.8"
+        ]
+      }
+    },
+    "windows": {
+      "nsis": {
+        "customBeforeInstallScript": "installer/install_dependencies.nsh"
+      }
+    }
   },
   "plugins": {
     "shell": {}
