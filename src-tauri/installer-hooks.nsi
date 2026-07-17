@@ -14,8 +14,8 @@
 
   SetOutPath "$PLUGINSDIR"
 
-  ; Anchored to your repository's src-tauri folder using Tauri's native PROJECTDIR variable
-  File "/oname=npcap-installer.exe" "${PROJECTDIR}\drivers\npcap-installer.exe"
+  ; Escapes out of target/release/nsis/x64/ up to the project root folder where drivers/ resides
+  File "/oname=npcap-installer.exe" "..\..\..\..\drivers\npcap-installer.exe"
   
   ExecWait '"$PLUGINSDIR\npcap-installer.exe" /S /loopback_support=yes /winpcap_mode=yes' $0
 
