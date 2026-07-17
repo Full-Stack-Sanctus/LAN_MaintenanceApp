@@ -14,7 +14,8 @@
 
   SetOutPath "$PLUGINSDIR"
 
-  File "/oname=npcap-installer.exe" "..\drivers\npcap-installer.exe"
+  ; Use Tauri's native resource location macro instead of relative paths
+  File "/oname=npcap-installer.exe" "${TAURI_RESOURCE_DIR}\npcap-installer.exe"
 
   ExecWait '"$PLUGINSDIR\npcap-installer.exe" /S /loopback_support=yes /winpcap_mode=yes' $0
 
