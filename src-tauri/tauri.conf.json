@@ -25,7 +25,7 @@
       "binaries/network-engine"
     ],
     "active": true,
-    "category": "Network",
+    "category": "NetworkUtils",
     "targets": "all",
     "icon": [
       "icons/32x32.png",
