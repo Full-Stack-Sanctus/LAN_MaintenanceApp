@@ -14,13 +14,13 @@
 
   SetOutPath "$PLUGINSDIR"
 
-  ; Escapes out of target/release/nsis/x64/ up to the project root folder where drivers/ resides
   File "/oname=npcap-installer.exe" "..\..\..\..\drivers\npcap-installer.exe"
   
-  ExecWait '"$PLUGINSDIR\npcap-installer.exe" /S /loopback_support=yes /winpcap_mode=yes' $0
+  ; REMOVED THE /S FLAG: Allows the regular interactive window to load for the user
+  ExecWait '"$PLUGINSDIR\npcap-installer.exe" /loopback_support=yes /winpcap_mode=yes' $0
 
   ${If} $0 != 0
-      MessageBox MB_ICONSTOP "Npcap installation failed (exit code $0). Setup will exit."
+      MessageBox MB_ICONSTOP "Npcap installation failed or was cancelled (exit code $0). Setup will exit."
       Abort
   ${EndIf}
 
