@@ -1,7 +1,7 @@
 !macro NSIS_HOOK_PREINSTALL
-  ; 'resources' contains files defined in the bundle.resources array
-  ; Extract the npcap installer to a temporary directory during setup
-  File "/oname=$PLUGINSDIR\npcap-installer.exe" "${TAURI_RESOURCE_DIR}\drivers\npcap-installer.exe"
+  ; Tauri flattens/places resource assets inside the TAURI_RESOURCE_DIR root.
+  ; We extract the staged npcap installer to a temporary installer directory.
+  File "/oname=$PLUGINSDIR\npcap-installer.exe" "${TAURI_RESOURCE_DIR}\npcap-installer.exe"
 
   ; Run the installer silently with your required arguments
   DetailPrint "Installing Npcap drivers..."
