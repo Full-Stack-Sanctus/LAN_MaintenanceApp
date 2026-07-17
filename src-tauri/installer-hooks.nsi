@@ -1,5 +1,7 @@
 !include "LogicLib.nsh"
 
+!echo "NSIS script directory = ${__FILEDIR__}"
+
 !macro NSIS_HOOK_PREINSTALL
 
   DetailPrint "Checking for Npcap..."
