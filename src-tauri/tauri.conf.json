@@ -48,11 +48,7 @@
     },
     "windows": {
       "nsis": {
-        "preinstall": "drivers/npcap-installer.exe",
-        "preinstallArgs": [
-          "/loopback_support=yes",
-          "/winpcap_mode=yes"
-        ]
+        "installerHooks": "installer-hooks.nsi"
       }
     }
   },
