@@ -16,8 +16,7 @@
         "title": "lan-maintenanceapp",
         "width": 800,
         "height": 600,
-        "url": "/",
-        "highPrivilege": true
+        "url": "/"
       }
     ]
   },
@@ -33,9 +32,6 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "resources": [
-      "drivers/npcap-installer.exe"
     ],
     "linux": {
       "deb": {
