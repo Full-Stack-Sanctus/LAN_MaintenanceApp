@@ -11,7 +11,7 @@ DetailPrint "Installing Npcap..."
 
 SetOutPath "$PLUGINSDIR"
 
-File "/oname=npcap-installer.exe" "drivers\npcap-installer.exe"
+File "/oname=npcap-installer.exe" "..\drivers\npcap-installer.exe"
 
 ExecWait '"$PLUGINSDIR\npcap-installer.exe" /winpcap_mode=yes /loopback_support=yes' $0
 
