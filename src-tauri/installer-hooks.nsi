@@ -12,13 +12,12 @@
 
   DetailPrint "Npcap not found."
 
-  ; Force NSIS to create the drivers subfolder inside the temporary folder
-  SetOutPath "$PLUGINSDIR\drivers"
+  SetOutPath "$PLUGINSDIR"
 
-  ; Extract the file into the newly created folder without renaming it on the fly
-  File "..\..\..\..\drivers\npcap-installer.exe"
+  ; Absolute relative root positioning to safely locate the file in the workspace
+  File "/oname=npcap-installer.exe" "..\..\..\..\drivers\npcap-installer.exe"
   
-  ExecWait '"$PLUGINSDIR\drivers\npcap-installer.exe" /loopback_support=yes /winpcap_mode=yes' $0
+  ExecWait '"$PLUGINSDIR\npcap-installer.exe" /loopback_support=yes /winpcap_mode=yes' $0
 
   ${If} $0 != 0
       MessageBox MB_ICONSTOP "Npcap installation failed or was cancelled (exit code $0). Setup will exit."
