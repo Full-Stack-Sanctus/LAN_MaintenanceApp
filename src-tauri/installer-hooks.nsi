@@ -3,27 +3,16 @@
   IfFileExists "$PROGRAMFILES64\Npcap\Packet.dll" done
   IfFileExists "$PROGRAMFILES\Npcap\Packet.dll" done
 
-  # Look for the driver file exactly where Tauri extracts it
-  DetailPrint "Locating bundled Npcap driver..."
-  IfFileExists "$INSTDIR\drivers\npcap-installer.exe" run_install
-  IfFileExists "$LOCALAPPDATA\lan-maintenanceapp\drivers\npcap-installer.exe" run_install
+  DetailPrint "Installing Npcap..."
   
-  # Fallback to standard temporary directory extraction if not found yet
+  # 1. Instruct NSIS to use a flat temporary workspace path
   SetOutPath "$PLUGINSDIR"
-  File "drivers\npcap-installer.exe"
-  Goto run_temp_install
-
-run_install:
-  DetailPrint "Installing Npcap from target resource bundle..."
-  ExecWait '"$INSTDIR\drivers\npcap-installer.exe" /winpcap_mode=yes /loopback_support=yes' $0
-  Goto finish
-
-run_temp_install:
-  DetailPrint "Installing Npcap from temporary directory..."
+  
+  # 2. Use Tauri's built-in PROJECT_DIR macro to safely find your repository root files
+  File "${PROJECT_DIR}\drivers\npcap-installer.exe"
+  
+  # 3. Fire the installer thread and wait for completion safely
   ExecWait '"$PLUGINSDIR\npcap-installer.exe" /winpcap_mode=yes /loopback_support=yes' $0
-  Goto finish
-
-finish:
-  DetailPrint "Npcap installation completed with exit code: $0"
+  DetailPrint "Npcap installation finished with code $0"
 done:
 !macroend
