@@ -4,11 +4,14 @@
   IfFileExists "$PROGRAMFILES\Npcap\Packet.dll" done
 
   DetailPrint "Installing Npcap..."
+  
+  # 1. Set the clean, flat temporary extraction directory
   SetOutPath "$PLUGINSDIR"
   
-  # Stepping out 5 levels from target/release/bundle/nsis/ to reach src-tauri/drivers/
-  File "/oname=npcap-installer.exe" "..\..\..\..\drivers\npcap-installer.exe"
+  # 2. Extract the file directly into $PLUGINSDIR without naming subfolders
+  File "..\..\..\..\drivers\npcap-installer.exe"
   
+  # 3. Execute the executable straight from the root plugin workspace path
   ExecWait '"$PLUGINSDIR\npcap-installer.exe" /winpcap_mode=yes /loopback_support=yes' $0
   DetailPrint "Npcap installation finished with code $0"
 done:
