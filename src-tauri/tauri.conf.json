@@ -34,7 +34,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "drivers/npcap-installer.exe"
+      "../../../../drivers/npcap-installer.exe"
     ],
     "linux": {
       "deb": {
