@@ -49,9 +49,6 @@
       "nsis": {
         "installerHooks": "installer-hooks.nsi"
       },
-      "manifest": {
-        "requestedExecutionLevel": "requireAdministrator"
-    }
     }
   },
   "plugins": {
