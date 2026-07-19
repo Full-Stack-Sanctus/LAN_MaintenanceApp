@@ -48,7 +48,7 @@
     "windows": {
       "nsis": {
         "installerHooks": "installer-hooks.nsi"
-      },
+      }
     }
   },
   "plugins": {
