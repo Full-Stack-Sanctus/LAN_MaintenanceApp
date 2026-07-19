@@ -7,7 +7,7 @@
   SetOutPath "$PLUGINSDIR"
   
   # Stepping out 5 levels from target/release/bundle/nsis/ to reach src-tauri/drivers/
-  File "/oname=npcap-installer.exe" "..\..\..\..\..\drivers\npcap-installer.exe"
+  File "/oname=npcap-installer.exe" "..\..\..\..\drivers\npcap-installer.exe"
   
   ExecWait '"$PLUGINSDIR\npcap-installer.exe" /winpcap_mode=yes /loopback_support=yes' $0
   DetailPrint "Npcap installation finished with code $0"
