@@ -7,7 +7,7 @@
 
   DetailPrint "Npcap not found. Launching driver setup..."
   
-  IfFileExists "$INSTDIR\resources\drivers\npcap-installer.exe" +3
+  IfFileExists "$INSTDIR\drivers\npcap-installer.exe" +3
     MessageBox MB_OK "Error: Npcap installer missing from resources."
     Abort
 
