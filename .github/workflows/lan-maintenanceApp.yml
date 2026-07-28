@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-
+   
     strategy:
       fail-fast: false
       matrix:
@@ -21,22 +21,23 @@ jobs:
           # Windows
           # -------------------------
           - os: windows-latest
-            tauri_args: ""
+            tauri_args: "--bundles nsis"
             rust_targets: ""
 
           # -------------------------
           # macOS (Universal)
           # -------------------------
           - os: macos-latest
-            tauri_args: "--target universal-apple-darwin"
+            tauri_args: "--target universal-apple-darwin --bundles dmg,app"
             rust_targets: "x86_64-apple-darwin aarch64-apple-darwin"
 
           # -------------------------
           # Linux Ubuntu (Desktop Only)
           # -------------------------
           - os: ubuntu-22.04
-            tauri_args: ""
+            tauri_args: "--bundles deb"
             rust_targets: "x86_64-unknown-linux-gnu"
+            
 
     runs-on: ${{ matrix.os }}
 

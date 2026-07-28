@@ -1,22 +1,18 @@
-Section "Install Npcap" SecNpcap
-  ; 1. Check if Npcap is already installed by looking at the registry
+!macro NSIS_HOOK_POSTINSTALL
+  DetailPrint "Checking system for Npcap requirements..."
+  
   ClearErrors
   ReadRegStr $0 HKLM "SOFTWARE\Npcap" ""
-  
-  ; If the registry key exists, skip to the end
   IfErrors 0 NpcapAlreadyInstalled
 
-  ; 2. If it does not exist, extract and run your installer
-  SetOutPath "$pluginsdir"
-  File "src-tauri\drivers\npcap-installer.exe"
+  DetailPrint "Npcap not found. Launching driver setup..."
   
-  DetailPrint "Installing Npcap Driver..."
-  
-  ; For FREE version: Runs the interactive installer
-  ExecWait '"$pluginsdir\npcap-installer.exe"'
-  
-  ; For OEM version (Uncomment below and comment out the line above if you buy OEM):
-  ; ExecWait '"$pluginsdir\npcap-installer.exe" /S'
+  IfFileExists "$INSTDIR\resources\drivers\npcap-installer.exe" +3
+    MessageBox MB_OK "Error: Npcap installer missing from resources."
+    Abort
+
+  ExecWait '"$INSTDIR\resources\drivers\npcap-installer.exe"'
 
   NpcapAlreadyInstalled:
-SectionEnd
+  DetailPrint "Npcap verification complete."
+!macroend

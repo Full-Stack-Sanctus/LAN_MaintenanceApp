@@ -44,7 +44,7 @@
     },
     "windows": {
       "nsis": {
-        "customTemplatePath": "installer-hooks.nsi"
+        "installerHooks": "installer-hooks.nsi"
       }
     },
     "resources": [
