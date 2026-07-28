@@ -44,9 +44,12 @@
     },
     "windows": {
       "nsis": {
-        "installerHooks": "installer-hooks.nsi"
+        "customTemplatePath": "installer-hooks.nsi"
       }
-    }
+    },
+    "resources": [
+      "drivers/npcap-installer.exe"
+    ]
   },
   "plugins": {
     "shell": {}
