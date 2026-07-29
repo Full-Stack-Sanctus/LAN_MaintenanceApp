@@ -11,7 +11,7 @@
     MessageBox MB_OK "Error: Npcap installer missing from resources."
     Abort
 
-  ExecWait '"$INSTDIR\resources\drivers\npcap-installer.exe"'
+  ExecWait '"$INSTDIR\drivers\npcap-installer.exe"'
 
   NpcapAlreadyInstalled:
   DetailPrint "Npcap verification complete."
