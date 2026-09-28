@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net",
-	"os",
+	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
