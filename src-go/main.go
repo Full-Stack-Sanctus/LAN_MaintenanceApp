@@ -173,9 +173,13 @@ func scanUnmanagedLayer2(cidr string) []Device {
 	// Enforce strict kernel-level BPF filter to parse *only* incoming ARP replies meant for us
 	// filter := fmt.Sprintf("arp and ether dst %s", iface.HardwareAddr.String())
 
-	if err := handle.SetBPFFilter(filter); err != nil {
-		return []Device{{IP: "BPF Error", Status: err.Error()}}
-	}
+	//if err := handle.SetBPFFilter(filter); err != nil {
+		//return []Device{{IP: "BPF Error", Status: err.Error()}}
+	//}
+	
+	if err := handle.SetBPFFilter("arp"); err != nil {
+        return []Device{{IP: "BPF Error", Status: err.Error()}}
+    }
 
 	discoveredDevices := &sync.Map{}
 
