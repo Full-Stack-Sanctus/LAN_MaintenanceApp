@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net"
+	"net",
+	"os",
 	"strings"
 	"sync"
 	"time"
@@ -52,8 +53,14 @@ func main() {
 	}
 
 	report.Performance = "Production Optimized (Zero-OS Reliance)"
-	data, _ := json.Marshal(report)
-	fmt.Println(string(data))
+	
+	data, err := json.Marshal(report)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "failed to marshal network report: %v\n", err)
+        return
+    }
+
+    fmt.Println(string(data)
 }
 
 // 1. MANAGED CORE ENGINE: Direct Hardware Bridge via SNMP
@@ -136,20 +143,25 @@ func scanUnmanagedLayer2(cidr string) []Device {
 
 	iface := mapping.Interface
 	localIP := mapping.LocalIP
+		
+	fmt.Fprintf(os.Stderr, "Windows Interface: %s | IfIndex: %d | Local IP: %s | MAC: %s\n",
+        iface.Name,
+        iface.Index,
+        localIP,
+        iface.HardwareAddr,
+    )
 
-	fmt.Printf(
-		"Windows Interface: %s | IfIndex: %d | Local IP: %s | MAC: %s\n",
-		iface.Name,
-		iface.Index,
-		localIP,
-		iface.HardwareAddr,
-	)
-
-	fmt.Printf(
-		"Npcap Device: %s | Description: %s\n",
-		mapping.PcapDevice.Name,
-		mapping.PcapDevice.Description,
-	)
+    fmt.Fprintf(os.Stderr, "Npcap Device: %s | Description: %s\n",
+        mapping.PcapDevice.Name,
+        mapping.PcapDevice.Description,
+    )
+    
+    fmt.Fprintf(
+        os.Stderr,
+        "ARP Reply: %s -> %s\n",
+        foundIP,
+        foundMAC,
+    )
 
 	// Step B: Initialize Npcap using the actual Npcap device name,
 	// NOT the Windows friendly adapter name.

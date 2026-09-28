@@ -33,10 +33,20 @@ const selectedDevice = ref<Device | null>(null);
  */
 function ipToNumeric(ip: string): number {
   const parts = ip.split('.').map(Number);
-  if (parts.length !== 4 || parts.some(isNaN)) {
-    return 0; // Guard clause against structurally compromised address nodes
+
+  if (
+    parts.length !== 4 ||
+    parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)
+  ) {
+    return 0;
   }
-  return (parts[0] << 24) >>> 0 | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+
+  return (
+    (parts[0] << 24) >>> 0 |
+    (parts[1] << 16) |
+    (parts[2] << 8) |
+    parts[3]
+  );
 }
 
 // Filtered and Absolute Sorted Computed Array Block
@@ -44,16 +54,14 @@ const filteredDevices = computed(() => {
   if (!report.value) return [];
 
   return report.value.devices
-    .filter(d => d.status === "Online" || d.status === "Verified") 
-    .filter(d => 
-      d.ip.includes(searchQuery.value) || 
+    .filter(d =>
+      d.ip.includes(searchQuery.value) ||
       d.mac.toLowerCase().includes(searchQuery.value.toLowerCase())
     )
-    .sort((a, b) => {
-      // Enforces ascending linear numeric placement across the UI dashboard
-      return ipToNumeric(a.ip) - ipToNumeric(b.ip);
-    });
+    .sort((a, b) => ipToNumeric(a.ip) - ipToNumeric(b.ip));
 });
+
+
 
 function openDevice(device: Device) {
   selectedDevice.value = device;
@@ -65,32 +73,41 @@ function closeDevice() {
 
 async function startAudit() {
   if (isScanning.value) return;
+
   isScanning.value = true;
   report.value = null;
+  selectedDevice.value = null;
+  searchQuery.value = "";
 
   try {
-    const result = await invoke<string>("execute_enterprise_audit", { 
-      args: { target: targetCidr.value, community: community.value || null } 
+    const result = await invoke<string>("execute_enterprise_audit", {
+      args: {
+        target: targetCidr.value,
+        community: community.value || null
+      }
     });
+
+    console.log("========== NETWORK ENGINE ==========");
     console.log("RAW RESULT:", result);
-    report.value = JSON.parse(result);
+    console.log("RESULT LENGTH:", result.length);
+
+    const parsed: NetworkReport = JSON.parse(result);
+
+    console.log("========== PARSED REPORT ==========");
+    console.log("Report:", parsed);
+    console.log("Devices:", parsed.devices);
+    console.log("Device count:", parsed.devices?.length);
+
+    report.value = parsed;
   } catch (error) {
-    console.error(error);
+    console.error("========== AUDIT FAILED ==========");
+    console.error("Enterprise audit error:", error);
   } finally {
     isScanning.value = false;
   }
 }
 
-const exportCSV = () => {
-  if (!report.value) return;
-  const content = "IP,MAC,Status,OS\n" + report.value.devices.map(d => `${d.ip},${d.mac},${d.status},${d.os || 'Unknown'}`).join("\n");
-  const blob = new Blob([content], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `empire-audit-${Date.now()}.csv`;
-  a.click();
-};
+
 </script>
 
 <template>
@@ -239,8 +256,8 @@ const exportCSV = () => {
                       {{ device.os || 'Hardware Target' }}
                     </td>
                     <td class="px-8 py-6 text-xs">
-                      <span :class="device.subnetMatch ? 'text-green-400' : 'text-red-400'">
-                        {{ device.subnetMatch ? 'Same' : 'Mismatch' }}
+                      <span :class="device.subnetMatch === undefined ? 'text-slate-500' : device.subnetMatch ? 'text-green-400' : 'text-red-400'">
+                        {{ device.subnetMatch === undefined ? 'Unknown' : device.subnetMatch ? 'Same' : 'Mismatch' }}
                       </span>
                     </td>
                   </tr>
@@ -285,8 +302,8 @@ const exportCSV = () => {
 
       <div class="flex justify-between">
         <span class="text-slate-400">Subnet Matching</span>
-        <span :class="selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
-          {{ selectedDevice.subnetMatch ? 'Same' : 'Mismatch' }}
+        <span :class="selectedDevice.subnetMatch === undefined ? 'text-slate-500' : selectedDevice.subnetMatch ? 'text-green-400' : 'text-red-400'">
+          {{ selectedDevice.subnetMatch === undefined ? 'Unknown' : selectedDevice.subnetMatch ? 'Same' : 'Mismatch' }}
         </span>
       </div>
     </div>
