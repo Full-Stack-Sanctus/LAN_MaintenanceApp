@@ -155,13 +155,6 @@ func scanUnmanagedLayer2(cidr string) []Device {
         mapping.PcapDevice.Name,
         mapping.PcapDevice.Description,
     )
-    
-    fmt.Fprintf(
-        os.Stderr,
-        "ARP Reply: %s -> %s\n",
-        foundIP,
-        foundMAC,
-    )
 
 	// Step B: Initialize Npcap using the actual Npcap device name,
 	// NOT the Windows friendly adapter name.
@@ -237,6 +230,13 @@ func scanUnmanagedLayer2(cidr string) []Device {
 
 				foundIP := net.IP(arpPad.SourceProtAddress).String()
 				foundMAC := net.HardwareAddr(arpPad.SourceHwAddress).String()
+				
+				fmt.Fprintf(
+	                os.Stderr,
+	                "ARP Reply: %s -> %s\n",
+	                foundIP,
+	                foundMAC,
+                )
 
 				discoveredDevices.Store(foundIP, Device{
 					IP:          foundIP,
