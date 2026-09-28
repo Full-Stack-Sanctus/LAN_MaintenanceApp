@@ -60,7 +60,7 @@ func main() {
         return
     }
 
-    fmt.Println(string(data)
+    fmt.Println(string(data))
 }
 
 // 1. MANAGED CORE ENGINE: Direct Hardware Bridge via SNMP
